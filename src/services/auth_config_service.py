@@ -219,14 +219,26 @@ def get_tenant_redirect_uri(tenant: Tenant) -> str:
 
     The redirect URI is based on the tenant's domain configuration.
 
+    Priority order:
+    1. ADMIN_UI_URL environment variable (supports custom domain + path prefix)
+    2. tenant.virtual_host (custom domain in database)
+    3. tenant.subdomain + SALES_AGENT_DOMAIN (multi-tenant mode)
+    4. SALES_AGENT_DOMAIN alone
+    5. FLY_APP_NAME (Fly.io deployments)
+    6. localhost fallback (development)
+
     Args:
         tenant: The Tenant object
 
     Returns:
         Full redirect URI
     """
-    if tenant.virtual_host:
-        # Custom domain takes highest priority
+    # ADMIN_UI_URL takes highest priority - supports domain + path prefix
+    # e.g., https://adcpsales.example.com/authtoken
+    if admin_ui_url := os.environ.get("ADMIN_UI_URL"):
+        base = admin_ui_url.rstrip("/")
+    elif tenant.virtual_host:
+        # Custom domain takes next priority
         base = f"https://{tenant.virtual_host}"
     elif tenant.subdomain and get_sales_agent_domain():
         # Subdomain on main domain (multi-tenant mode with SALES_AGENT_DOMAIN set)
