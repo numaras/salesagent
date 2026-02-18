@@ -55,9 +55,9 @@ def main():
     repo_root = Path(__file__).parent.parent
 
     # Find all apply_testing_hooks usages in main.py
-    main_py = repo_root / "src" / "core" / "main.py"
+    main_py = repo_root / "python_src" / "src" / "core" / "main.py"
     if not main_py.exists():
-        print("❌ src/core/main.py not found")
+        print("❌ python_src/src/core/main.py not found")
         return 1
 
     operations_using_hooks = find_testing_hooks_usages(main_py)

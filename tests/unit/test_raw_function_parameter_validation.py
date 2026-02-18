@@ -77,7 +77,7 @@ class TestRawFunctionParameterValidation:
 
         This would catch bugs like accepting adcp_version but not using it.
         """
-        tools_path = Path(__file__).parent.parent.parent / "src" / "core" / "tools" / "__init__.py"
+        tools_path = Path(__file__).parent.parent.parent / "python_src" / "src" / "core" / "tools" / "__init__.py"
         with open(tools_path) as f:
             content = f.read()
 
@@ -144,7 +144,7 @@ class TestRawFunctionParameterValidation:
 
         This is the exact bug we fixed - passing adcp_version to create_get_products_request.
         """
-        tools_path = Path(__file__).parent.parent.parent / "src" / "core" / "tools" / "__init__.py"
+        tools_path = Path(__file__).parent.parent.parent / "python_src" / "src" / "core" / "tools" / "__init__.py"
         with open(tools_path) as f:
             content = f.read()
 

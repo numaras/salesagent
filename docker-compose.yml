@@ -19,6 +19,7 @@
 # Environment variables (optional, via .env file):
 #   CONDUCTOR_PORT: Change proxy port (default: 8000, useful for multiple worktrees)
 #   CREATE_DEMO_TENANT=true: Create demo tenant with mock adapter
+#   TS_APP_PORT: Port for TypeScript app (default: 3000); ts-app service runs a minimal HTTP server
 
 services:
   postgres:
@@ -47,7 +48,7 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql://adcp_user:secure_password_change_me@postgres:5432/adcp?sslmode=disable
-      PYTHONPATH: "/app"
+      PYTHONPATH: "/app/python_src"
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,7 +88,7 @@ services:
       # Override .env ports to match nginx-development.conf expectations
       ADCP_SALES_PORT: "8080"
       # Development settings
-      PYTHONPATH: "/app/.venv/lib/python3.12/site-packages"
+      PYTHONPATH: "/app/python_src"
       PYTHONUNBUFFERED: "1"
       FLASK_ENV: development
     depends_on:
@@ -131,7 +132,7 @@ services:
       # Enable test login mode for development
       ADCP_AUTH_TEST_MODE: "true"
       # Development settings
-      PYTHONPATH: "/app/.venv/lib/python3.12/site-packages"
+      PYTHONPATH: "/app/python_src"
       PYTHONUNBUFFERED: "1"
       FLASK_ENV: development
       FLASK_DEBUG: "1"
@@ -156,6 +157,40 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
+      retries: 3
+
+  # Run TypeScript DB migrations once (creates tables). No Postgres install needed on host.
+  ts-db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.ts
+    environment:
+      DATABASE_URL: postgresql://adcp_user:secure_password_change_me@postgres:5432/adcp?sslmode=disable
+    command: ["npm", "run", "db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # TypeScript app (MCP, A2A, Admin, health).
+  ts-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.ts
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgresql://adcp_user:secure_password_change_me@postgres:5432/adcp?sslmode=disable
+    ports:
+      - "${TS_APP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ts-db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
       retries: 3
 
 volumes:

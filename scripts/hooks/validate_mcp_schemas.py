@@ -130,7 +130,7 @@ class ToolSchemaValidator:
         tool_param_set = set(tool_params)
 
         # Get main.py path for schema construction check
-        main_py_path = Path(__file__).parent.parent.parent / "src" / "core" / "main.py"
+        main_py_path = Path(__file__).parent.parent.parent / "python_src" / "src" / "core" / "main.py"
         constructed_schemas = self.find_schema_constructions(main_py_path, tool_name)
 
         # Special case: if tool takes a single 'req' parameter matching the schema name
@@ -214,8 +214,8 @@ class ToolSchemaValidator:
         """Validate all registered tool-schema mappings for both MCP and A2A."""
         print("🔍 Validating MCP and A2A tool-schema alignment...\n")
 
-        main_py_path = Path(__file__).parent.parent.parent / "src" / "core" / "main.py"
-        tools_py_path = Path(__file__).parent.parent.parent / "src" / "core" / "tools" / "__init__.py"
+        main_py_path = Path(__file__).parent.parent.parent / "python_src" / "src" / "core" / "main.py"
+        tools_py_path = Path(__file__).parent.parent.parent / "python_src" / "src" / "core" / "tools" / "__init__.py"
 
         tools_in_main = self.parse_main_py_for_tools(main_py_path)
         tools_in_tools_py = self.parse_tools_py_for_raw_functions(tools_py_path)

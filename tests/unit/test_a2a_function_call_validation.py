@@ -121,7 +121,7 @@ class TestA2AHandlerMethodCalls:
     def test_source_code_function_call_patterns(self):
         """Test that source code uses correct function call patterns."""
         # Read the A2A server source file
-        file_path = os.path.join(os.path.dirname(__file__), "..", "..", "src", "a2a_server", "adcp_a2a_server.py")
+        file_path = os.path.join(os.path.dirname(__file__), "..", "..", "python_src", "src", "a2a_server", "adcp_a2a_server.py")
 
         with open(file_path) as f:
             content = f.read()
@@ -278,7 +278,7 @@ class TestImportValidation:
 
     def test_import_statements_in_source(self):
         """Test that import statements in source are correct."""
-        file_path = os.path.join(os.path.dirname(__file__), "..", "..", "src", "a2a_server", "adcp_a2a_server.py")
+        file_path = os.path.join(os.path.dirname(__file__), "..", "..", "python_src", "src", "a2a_server", "adcp_a2a_server.py")
 
         with open(file_path) as f:
             content = f.read()
@@ -298,7 +298,7 @@ class TestImportValidation:
 
     def test_no_function_tool_imports(self):
         """Test that source doesn't import FunctionTool objects incorrectly."""
-        file_path = os.path.join(os.path.dirname(__file__), "..", "..", "src", "a2a_server", "adcp_a2a_server.py")
+        file_path = os.path.join(os.path.dirname(__file__), "..", "..", "python_src", "src", "a2a_server", "adcp_a2a_server.py")
 
         with open(file_path) as f:
             content = f.read()
@@ -337,7 +337,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Test 3: Check for .fn patterns in source
-    file_path = os.path.join(os.path.dirname(__file__), "..", "..", "src", "a2a_server", "adcp_a2a_server.py")
+    file_path = os.path.join(os.path.dirname(__file__), "..", "..", "python_src", "src", "a2a_server", "adcp_a2a_server.py")
     with open(file_path) as f:
         content = f.read()
 

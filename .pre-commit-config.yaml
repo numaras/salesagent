@@ -20,7 +20,7 @@ repos:
       # Enforce JSONType usage for all JSON columns
       - id: enforce-jsontype
         name: Enforce JSONType usage (not plain JSON)
-        entry: sh -c 'if grep -rE "Column\(JSON[,)]" --include="*.py" src/core/database/models.py; then echo "❌ Found Column(JSON) usage! Use Column(JSONType) instead. See CLAUDE.md for pattern."; exit 1; fi'
+        entry: sh -c 'if grep -rE "Column\(JSON[,)]" --include="*.py" python_src/src/core/database/models.py; then echo "❌ Found Column(JSON) usage! Use Column(JSONType) instead. See CLAUDE.md for pattern."; exit 1; fi'
         language: system
         pass_filenames: false
         always_run: true
@@ -36,34 +36,34 @@ repos:
       # Ensure GAM clients support both OAuth and service account auth
       - id: check-gam-auth-support
         name: Check GAM client supports both auth methods
-        entry: uv run python .pre-commit-hooks/check-gam-auth-support.py
+        entry: sh -c 'PYTHONPATH=python_src uv run python .pre-commit-hooks/check-gam-auth-support.py'
         language: system
-        files: '^src/.*\.py$'
+        files: '^python_src/src/.*\.py$'
         pass_filenames: false
 
       # Enforce SQLAlchemy 2.0 patterns (no legacy session.query)
       - id: enforce-sqlalchemy-2-0
         name: Enforce SQLAlchemy 2.0 patterns (no session.query)
-        entry: uv run python .pre-commit-hooks/check_sqlalchemy_2_0.py
+        entry: sh -c 'PYTHONPATH=python_src uv run python .pre-commit-hooks/check_sqlalchemy_2_0.py'
         language: system
-        files: '^src/.*\.py$'
+        files: '^python_src/src/.*\.py$'
         pass_filenames: true
 
       # Check for Flask route conflicts
       - id: check-route-conflicts
         name: Detect Flask route conflicts
-        entry: uv run python .pre-commit-hooks/check_route_conflicts.py
+        entry: sh -c 'PYTHONPATH=python_src uv run python .pre-commit-hooks/check_route_conflicts.py'
         language: system
-        files: '^(src/.*\.py)$'
+        files: '^(python_src/src/.*\.py)$'
         pass_filenames: false
         always_run: false
 
       # Check tenant context ordering in MCP tools
       - id: check-tenant-context-order
         name: Check tenant context auth before get_current_tenant()
-        entry: uv run python .pre-commit-hooks/check_tenant_context_order.py
+        entry: sh -c 'PYTHONPATH=python_src uv run python .pre-commit-hooks/check_tenant_context_order.py'
         language: system
-        files: '^src/core/tools/.*\.py$'
+        files: '^python_src/src/core/tools/.*\.py$'
         pass_filenames: true
         always_run: false
 
@@ -87,24 +87,24 @@ repos:
       # Check for missing imports (prevent NameError bugs)
       - id: check-import-usage
         name: Check for classes/functions used without imports
-        entry: uv run python .pre-commit-hooks/check_import_usage.py
+        entry: sh -c 'PYTHONPATH=python_src uv run python .pre-commit-hooks/check_import_usage.py'
         language: system
-        files: '^src/.*\.py$'
+        files: '^python_src/src/.*\.py$'
         pass_filenames: true
 
       # Check for unsafe response attribute access (prevent AttributeError bugs)
       - id: check-response-attribute-access
         name: Detect unsafe response attribute access patterns
-        entry: uv run python scripts/hooks/check_response_attribute_access.py
+        entry: sh -c 'PYTHONPATH=python_src uv run python scripts/hooks/check_response_attribute_access.py'
         language: system
-        files: '^src/.*\.py$'
+        files: '^python_src/src/.*\.py$'
         pass_filenames: true
 
 
       # Check roundtrip tests exist for all apply_testing_hooks calls
       - id: check-roundtrip-tests
         name: Verify roundtrip tests exist for apply_testing_hooks operations
-        entry: uv run python .pre-commit-hooks/check_roundtrip_tests.py
+        entry: sh -c 'PYTHONPATH=python_src uv run python .pre-commit-hooks/check_roundtrip_tests.py'
         language: system
         pass_filenames: false
         always_run: true
@@ -112,7 +112,7 @@ repos:
       # Check MCP/A2A parameter alignment
       - id: check-parameter-alignment
         name: Check MCP/A2A parameter alignment with _impl functions
-        entry: sh -c 'uv run python .pre-commit-hooks/check_parameter_alignment.py || echo "⚠️  Parameter mismatches found (non-blocking for now)" >&2'
+        entry: sh -c 'PYTHONPATH=python_src uv run python .pre-commit-hooks/check_parameter_alignment.py || echo "⚠️  Parameter mismatches found (non-blocking for now)" >&2'
         language: system
         pass_filenames: false
         always_run: true
@@ -120,7 +120,7 @@ repos:
       # Ensure smoke tests pass
       - id: smoke-tests
         name: Run smoke tests (critical paths)
-        entry: uv run pytest tests/smoke/ -v --tb=short -m smoke
+        entry: sh -c 'PYTHONPATH=python_src uv run pytest tests/smoke/ -v --tb=short -m smoke'
         language: system
         pass_filenames: false
         stages: [manual]  # Run with: pre-commit run smoke-tests
@@ -144,7 +144,7 @@ repos:
       # Run quick unit tests before commit (optional - can be skipped with --no-verify)
       - id: pytest-unit
         name: Run unit tests (optional)
-        entry: sh -c 'uv run pytest tests/unit/ -x --tb=short -q || echo "⚠️  Tests failed but continuing (use --no-verify to skip)"'
+        entry: sh -c 'PYTHONPATH=python_src uv run pytest tests/unit/ -x --tb=short -q || echo "⚠️  Tests failed but continuing (use --no-verify to skip)"'
         language: system
         pass_filenames: false
         stages: [manual]  # Changed to manual - run with: pre-commit run pytest-unit
@@ -153,7 +153,7 @@ repos:
       # Test AdCP contract compliance
       - id: adcp-contract-tests
         name: Verify AdCP protocol compliance
-        entry: uv run pytest tests/unit/test_adcp_contract.py -v --tb=short
+        entry: sh -c 'PYTHONPATH=python_src uv run pytest tests/unit/test_adcp_contract.py -v --tb=short'
         language: system
         pass_filenames: false
         always_run: true
@@ -161,9 +161,9 @@ repos:
       # Test MCP contract validation (prevent validation errors like 'brief' is required)
       - id: mcp-contract-validation
         name: MCP contract validation tests
-        entry: uv run pytest tests/integration/test_mcp_contract_validation.py -v --tb=short
+        entry: sh -c 'PYTHONPATH=python_src uv run pytest tests/integration/test_mcp_contract_validation.py -v --tb=short'
         language: system
-        files: '^(src/core/schemas\.py|src/core/main\.py)$'
+        files: '^(python_src/src/core/schemas\.py|python_src/src/core/main\.py)$'
         pass_filenames: false
 
 
@@ -179,7 +179,7 @@ repos:
       # Check Pydantic-AdCP schema alignment (prevents client validation errors like missing promoted_offering)
       - id: pydantic-adcp-alignment
         name: Pydantic model alignment with AdCP schemas (REGRESSION PREVENTION)
-        entry: uv run pytest tests/unit/test_pydantic_schema_alignment.py::TestSpecificFieldValidation -v --tb=short
+        entry: sh -c 'PYTHONPATH=python_src uv run pytest tests/unit/test_pydantic_schema_alignment.py::TestSpecificFieldValidation -v --tb=short'
         language: system
         files: '^(src/core/schemas\.py|schemas/v1/.*\.json)$'
         pass_filenames: false
@@ -189,18 +189,18 @@ repos:
       # Prevent problematic function call patterns
       - id: no-fn-calls
         name: No .fn() call patterns
-        entry: sh -c 'if grep -r "\.fn(" src/ --include="*.py" | grep -v test; then echo "❌ Found .fn() calls - use direct function calls"; exit 1; fi'
+        entry: sh -c 'if grep -r "\.fn(" python_src/src/ --include="*.py" | grep -v test; then echo "❌ Found .fn() calls - use direct function calls"; exit 1; fi'
         language: system
-        files: ^src/
+        files: ^python_src/src/
         pass_filenames: false
 
 
       # Validate MCP tool-schema parameter alignment (prevents datetime.combine bugs)
       - id: mcp-schema-alignment
         name: MCP tool-schema parameter alignment
-        entry: uv run python scripts/hooks/validate_mcp_schemas.py
+        entry: sh -c 'PYTHONPATH=python_src uv run python scripts/hooks/validate_mcp_schemas.py'
         language: system
-        files: '^(src/core/schemas\.py|src/core/main\.py)$'
+        files: '^(python_src/src/core/schemas\.py|python_src/src/core/main\.py)$'
         pass_filenames: false
 
       # Check generated schemas are in sync with JSON schemas
@@ -220,9 +220,9 @@ repos:
       # Check type: ignore count doesn't increase (ratcheting approach)
       - id: type-ignore-no-regression
         name: "Check type: ignore count (no regression)"
-        entry: uv run python .pre-commit-hooks/check_type_ignore_count.py
+        entry: sh -c 'PYTHONPATH=python_src uv run python .pre-commit-hooks/check_type_ignore_count.py'
         language: system
-        files: '^src/.*\.py$'
+        files: '^python_src/src/.*\.py$'
         pass_filenames: false
         always_run: false  # Only run when Python files in src/ changed
 
@@ -278,5 +278,5 @@ repos:
           - adcp>=3.0.0
           - fastmcp
           - alembic
-        files: '^src/'
-        exclude: '^src/adapters/google_ad_manager_original\.py$'
+        files: '^python_src/src/'
+        exclude: '^python_src/src/adapters/google_ad_manager_original\.py$'

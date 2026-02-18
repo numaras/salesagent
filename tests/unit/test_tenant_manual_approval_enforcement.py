@@ -36,7 +36,7 @@ class TestTenantManualApprovalEnforcement:
         approval check might be accidentally removed. If this test fails after a
         refactor, update it to match the new pattern.
         """
-        file_path = Path(__file__).parent.parent.parent / "src" / "core" / "tools" / "media_buy_create.py"
+        file_path = Path(__file__).parent.parent.parent / "python_src" / "src" / "core" / "tools" / "media_buy_create.py"
         source = file_path.read_text()
 
         # The implementation must check tenant's human_review_required setting

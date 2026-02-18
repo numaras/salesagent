@@ -102,7 +102,7 @@ def test_create_media_buy_has_correct_pattern_in_source():
     from pathlib import Path
 
     # Read the create_media_buy_impl source
-    file_path = Path(__file__).parent.parent.parent / "src" / "core" / "tools" / "media_buy_create.py"
+    file_path = Path(__file__).parent.parent.parent / "python_src" / "src" / "core" / "tools" / "media_buy_create.py"
     source = file_path.read_text()
 
     # Find the _create_media_buy_impl function
@@ -137,7 +137,7 @@ def test_all_tools_have_auth_before_tenant_pattern():
     """Documentation test: Verify pattern is documented in all tool files."""
     from pathlib import Path
 
-    tools_dir = Path(__file__).parent.parent.parent / "src" / "core" / "tools"
+    tools_dir = Path(__file__).parent.parent.parent / "python_src" / "src" / "core" / "tools"
     tool_files = [
         "products.py",
         "creative_formats.py",

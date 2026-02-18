@@ -139,7 +139,7 @@ class TestFunctionCallRegression:
     def test_core_function_call_patterns(self):
         """Test that function calls use correct patterns (not .fn())."""
         # Read the A2A server file and check for correct call patterns
-        file_path = os.path.join(os.path.dirname(__file__), "..", "..", "src", "a2a_server", "adcp_a2a_server.py")
+        file_path = os.path.join(os.path.dirname(__file__), "..", "..", "python_src", "src", "a2a_server", "adcp_a2a_server.py")
 
         with open(file_path) as f:
             content = f.read()
@@ -219,7 +219,7 @@ class TestHTTPBehaviorRegression:
     def test_middleware_handles_both_a2a_paths(self):
         """Test that middleware handles both /a2a and /a2a/ paths."""
         # Read the A2A server file to verify middleware logic
-        file_path = os.path.join(os.path.dirname(__file__), "..", "..", "src", "a2a_server", "adcp_a2a_server.py")
+        file_path = os.path.join(os.path.dirname(__file__), "..", "..", "python_src", "src", "a2a_server", "adcp_a2a_server.py")
 
         with open(file_path) as f:
             content = f.read()
@@ -286,7 +286,7 @@ def test_regression_prevention_summary():
         raise
 
     # 4. File doesn't contain problematic patterns
-    file_path = os.path.join(os.path.dirname(__file__), "..", "..", "src", "a2a_server", "adcp_a2a_server.py")
+    file_path = os.path.join(os.path.dirname(__file__), "..", "..", "python_src", "src", "a2a_server", "adcp_a2a_server.py")
     with open(file_path) as f:
         content = f.read()
     assert "core_get_products_tool.fn(" not in content, "REGRESSION: Found .fn() call pattern"

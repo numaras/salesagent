@@ -1,0 +1,35 @@
+---
+alwaysApply: true
+---
+
+---
+description: Python → TypeScript migration workflow
+globs:
+  - "python_src/**/*.py"
+alwaysApply: false
+---
+
+You are migrating this codebase from Python to TypeScript (Node.js).
+
+Overall principles:
+- Port behaviour first, then refactor. Do not redesign APIs or data models unless explicitly requested.
+- Preserve semantics exactly; all existing Python tests should still pass when reimplemented in TS.
+- Prefer TypeScript (not plain JS) for all new files.
+
+Migration workflow for each Python module:
+1. Read the Python module and any related tests.
+2. Explain in 3–5 bullet points what the module does and any security‑relevant behaviour.
+3. If tests are missing or weak, propose and add tests in Python first (pytest) that capture current behaviour.
+4. Ask the user before modifying any public API surface.
+
+Translation rules:
+- Create a corresponding `.ts` file under `src/` following the same directory structure.
+- Use async/await, no callbacks.
+- Use explicit types for function parameters and returns; avoid `any`.
+- Do not change business logic; keep branching and error handling structurally similar.
+- Keep original Python in comments at the top of the TS file for reference when helpful.
+
+Verification:
+- After generating TS code, add or update equivalent tests (Jest/Vitest) mirroring Python tests.
+- Run `npm test` and fix issues until tests pass.
+- Never change tests without explicit user approval.

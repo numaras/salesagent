@@ -1,0 +1,19 @@
+---
+alwaysApply: true
+---
+
+---
+description: Testing discipline for migration
+alwaysApply: true
+---
+
+General testing rules:
+
+- Use tests to lock in behaviour before large refactors or language migrations.
+- Never delete or weaken tests unless the user explicitly asks and justification is provided.
+- When adding new code paths, propose at least one new test to cover them.
+
+Workflow:
+1. Before major changes, run the relevant test command (`pytest`, `npm test`) and report status.
+2. If tests fail, fix them or explain failures before adding new features.
+3. When porting Python to TS, ensure the same logical cases are covered by both test suites.

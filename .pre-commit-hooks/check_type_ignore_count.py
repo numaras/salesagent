@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 BASELINE_FILE = ".type-ignore-baseline"
-SRC_DIR = "src"
+SRC_DIR = "python_src/src"
 
 
 def count_type_ignores(src_path: Path) -> int:

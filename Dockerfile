@@ -115,7 +115,7 @@ RUN --mount=type=cache,target=/cache/uv \
 
 # Add .venv to PATH and set PYTHONPATH for module imports
 ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app"
+ENV PYTHONPATH="/app/python_src"
 ENV PYTHONUNBUFFERED=1
 
 # Default port

@@ -81,9 +81,9 @@ class TestAuthRemovalChanges:
         """Verify the source code uses the optional auth pattern."""
         # Simple source code check - tools now split across multiple files
         tool_files = [
-            "src/core/tools/products.py",
-            "src/core/tools/properties.py",
-            "src/core/auth.py",
+            "python_src/src/core/tools/products.py",
+            "python_src/src/core/tools/properties.py",
+            "python_src/src/core/auth.py",
         ]
 
         sources = []

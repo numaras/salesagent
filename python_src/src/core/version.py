@@ -25,8 +25,8 @@ def get_version() -> str:
         import tomllib
         from pathlib import Path
 
-        # Look for pyproject.toml relative to this file
-        project_root = Path(__file__).parent.parent.parent
+        # Look for pyproject.toml relative to this file (python_src/src/core/version.py -> repo root)
+        project_root = Path(__file__).parent.parent.parent.parent
         pyproject_path = project_root / "pyproject.toml"
 
         if pyproject_path.exists():

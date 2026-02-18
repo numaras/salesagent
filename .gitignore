@@ -25,6 +25,7 @@ adcp-manager-key.json
 *.egg-info
 dist/
 build/
+node_modules/
 
 # Logs
 logs/

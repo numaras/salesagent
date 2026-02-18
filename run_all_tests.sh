@@ -12,6 +12,9 @@ set -e  # Exit on first error
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+# Python source lives under python_src/src (Option A layout for TS migration)
+export PYTHONPATH="${SCRIPT_DIR}/python_src${PYTHONPATH:+:${PYTHONPATH}}"
+
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

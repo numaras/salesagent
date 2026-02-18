@@ -376,3 +376,121 @@ class TestInitOAuth:
             result = init_oauth(app)
 
         assert result is None
+
+
+class TestGetTenantRedirectUri:
+    """Tests for get_tenant_redirect_uri function.
+
+    Verifies the priority order:
+    1. ADMIN_UI_URL env var (domain + path prefix)
+    2. tenant.virtual_host
+    3. tenant.subdomain + SALES_AGENT_DOMAIN
+    4. SALES_AGENT_DOMAIN alone
+    5. FLY_APP_NAME
+    6. localhost fallback
+    """
+
+    def _make_tenant(self, subdomain="default", virtual_host=None):
+        from unittest.mock import MagicMock
+
+        tenant = MagicMock()
+        tenant.subdomain = subdomain
+        tenant.virtual_host = virtual_host
+        return tenant
+
+    def test_admin_ui_url_takes_highest_priority(self):
+        """ADMIN_UI_URL overrides all other options."""
+        from src.services.auth_config_service import get_tenant_redirect_uri
+
+        tenant = self._make_tenant(subdomain="acme", virtual_host="custom.example.com")
+        env = {
+            "ADMIN_UI_URL": "https://adcpsales.example.com/authtoken",
+            "SALES_AGENT_DOMAIN": "sales.example.com",
+        }
+
+        with patch.dict(os.environ, env, clear=True):
+            uri = get_tenant_redirect_uri(tenant)
+
+        assert uri == "https://adcpsales.example.com/authtoken/auth/oidc/callback"
+
+    def test_admin_ui_url_trailing_slash_stripped(self):
+        """Trailing slash on ADMIN_UI_URL doesn't cause double slash."""
+        from src.services.auth_config_service import get_tenant_redirect_uri
+
+        tenant = self._make_tenant()
+        env = {"ADMIN_UI_URL": "https://example.com/authtoken/"}
+
+        with patch.dict(os.environ, env, clear=True):
+            uri = get_tenant_redirect_uri(tenant)
+
+        assert uri == "https://example.com/authtoken/auth/oidc/callback"
+
+    def test_virtual_host_is_second_priority(self):
+        """tenant.virtual_host used when ADMIN_UI_URL not set."""
+        from src.services.auth_config_service import get_tenant_redirect_uri
+
+        tenant = self._make_tenant(virtual_host="custom.example.com")
+
+        with patch.dict(os.environ, {}, clear=True):
+            uri = get_tenant_redirect_uri(tenant)
+
+        assert uri == "https://custom.example.com/auth/oidc/callback"
+
+    def test_subdomain_with_sales_agent_domain(self):
+        """Subdomain + SALES_AGENT_DOMAIN used in multi-tenant mode."""
+        from src.services.auth_config_service import get_tenant_redirect_uri
+
+        tenant = self._make_tenant(subdomain="acme")
+        env = {"SALES_AGENT_DOMAIN": "sales.example.com"}
+
+        with patch.dict(os.environ, env, clear=True):
+            uri = get_tenant_redirect_uri(tenant)
+
+        assert uri == "https://acme.sales.example.com/auth/oidc/callback"
+
+    def test_sales_agent_domain_without_subdomain(self):
+        """SALES_AGENT_DOMAIN used alone when tenant has no subdomain."""
+        from src.services.auth_config_service import get_tenant_redirect_uri
+
+        tenant = self._make_tenant(subdomain=None)
+        env = {"SALES_AGENT_DOMAIN": "sales.example.com"}
+
+        with patch.dict(os.environ, env, clear=True):
+            uri = get_tenant_redirect_uri(tenant)
+
+        assert uri == "https://sales.example.com/auth/oidc/callback"
+
+    def test_fly_app_name_fallback(self):
+        """FLY_APP_NAME used for Fly.io deployments."""
+        from src.services.auth_config_service import get_tenant_redirect_uri
+
+        tenant = self._make_tenant(subdomain=None)
+        env = {"FLY_APP_NAME": "my-app"}
+
+        with patch.dict(os.environ, env, clear=True):
+            uri = get_tenant_redirect_uri(tenant)
+
+        assert uri == "https://my-app.fly.dev/auth/oidc/callback"
+
+    def test_localhost_fallback_default_port(self):
+        """Falls back to localhost:8001 with no configuration."""
+        from src.services.auth_config_service import get_tenant_redirect_uri
+
+        tenant = self._make_tenant(subdomain=None)
+
+        with patch.dict(os.environ, {}, clear=True):
+            uri = get_tenant_redirect_uri(tenant)
+
+        assert uri == "http://localhost:8001/auth/oidc/callback"
+
+    def test_localhost_fallback_custom_port(self):
+        """ADMIN_UI_PORT overrides the default localhost port."""
+        from src.services.auth_config_service import get_tenant_redirect_uri
+
+        tenant = self._make_tenant(subdomain=None)
+        env = {"ADMIN_UI_PORT": "9000"}
+
+        with patch.dict(os.environ, env, clear=True):
+            uri = get_tenant_redirect_uri(tenant)
+
+        assert uri == "http://localhost:9000/auth/oidc/callback"

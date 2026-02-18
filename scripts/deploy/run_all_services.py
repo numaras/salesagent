@@ -277,7 +277,7 @@ def run_a2a_server():
         print("[A2A] Launching official a2a-sdk server...")
         # Use official a2a-sdk implementation with JSON-RPC 2.0 support
         proc = subprocess.Popen(
-            [sys.executable, "src/a2a_server/adcp_a2a_server.py"],
+            [sys.executable, "python_src/src/a2a_server/adcp_a2a_server.py"],
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

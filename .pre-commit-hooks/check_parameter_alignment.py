@@ -85,8 +85,8 @@ tools = [
 ]
 
 # File paths
-main_py = Path("src/core/main.py")
-tools_py = Path("src/core/tools.py")
+main_py = Path("python_src/src/core/main.py")
+tools_py = Path("python_src/src/core/tools.py")
 
 issues_found = []
 

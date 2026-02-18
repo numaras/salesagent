@@ -89,6 +89,10 @@ Dockerfile.*
 .gitlab-ci.yml
 .travis.yml
 
+# Node (for Dockerfile.ts)
+node_modules/
+npm-debug.log*
+
 # Project specific
 audit_logs/
 ui_tests/

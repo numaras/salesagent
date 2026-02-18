@@ -1,0 +1,29 @@
+---
+alwaysApply: true
+---
+
+---
+description: TypeScript/Node security and quality checks
+globs:
+  - "src/**/*.ts"
+alwaysApply: false
+---
+
+When creating or modifying TypeScript/Node code:
+
+- Prefer pure functions and clear, explicit error handling.
+- Never use `eval`, `Function` constructor, or dynamic `require`.
+- Validate and sanitize all external input at boundaries (HTTP handlers, message consumers, CLI, etc.).
+
+Verification:
+- After edits, run:
+  - `npm run lint` (ESLint + TypeScript with security rules enabled).
+  - `npm test`.
+
+If lint or tests fail:
+- Fix code instead of weakening lint rules or changing tests without explicit user approval.
+
+Security specifics:
+- Use trusted libraries for crypto and JWT (e.g., `crypto`, `jose`), never roll your own.
+- Use parameterized queries or ORM methods for database access.
+- Avoid storing secrets in code; assume they come from environment or secret manager.

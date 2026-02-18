@@ -54,6 +54,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "bandit[toml]>=1.7.0",
     "mocker>=1.1.1",
     "mypy>=1.18.2",
     "pytest>=8.4.1",
@@ -78,6 +79,7 @@ ui-tests = [
 
 [dependency-groups]
 dev = [
+    "bandit[toml]>=1.7.0",
     "mocker>=1.1.1",
     "mypy>=1.18.2",
     "pytest>=8.4.1",

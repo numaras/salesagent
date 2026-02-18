@@ -130,14 +130,14 @@ class TestProjectStructure:
         base_dir = Path(__file__).parent.parent.parent
 
         critical_files = [
-            "src/core/main.py",
-            "src/core/schemas.py",
-            "src/core/database/models.py",
-            "src/core/database/database_session.py",
-            "src/core/config_loader.py",
-            "src/core/audit_logger.py",
-            "src/adapters/base.py",
-            "src/adapters/mock_ad_server.py",
+            "python_src/src/core/main.py",
+            "python_src/src/core/schemas.py",
+            "python_src/src/core/database/models.py",
+            "python_src/src/core/database/database_session.py",
+            "python_src/src/core/config_loader.py",
+            "python_src/src/core/audit_logger.py",
+            "python_src/src/adapters/base.py",
+            "python_src/src/adapters/mock_ad_server.py",
             "pytest.ini",
             ".pre-commit-config.yaml",
         ]

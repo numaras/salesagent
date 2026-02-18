@@ -1,0 +1,35 @@
+{
+  "name": "adcp-sales-agent-ts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeScript migration of Prebid Sales Agent",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/run.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src tests/ts && tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:check": "tsx src/db/check.ts"
+  },
+  "dependencies": {
+    "@guardian/google-admanager-api": "^3.1.4",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "drizzle-orm": "^0.36.0",
+    "express": "^5.2.1",
+    "pg": "^8.13.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.0",
+    "drizzle-kit": "^0.28.0",
+    "eslint": "^9.16.0",
+    "tsx": "^4.19.2",
+    "typescript": "~5.7.0",
+    "typescript-eslint": "^8.16.0",
+    "vitest": "^2.1.0"
+  }
+}

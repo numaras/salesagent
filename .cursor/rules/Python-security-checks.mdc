@@ -1,0 +1,24 @@
+---
+alwaysApply: true
+---
+
+---
+description: Python security and quality checks
+alwaysApply: false
+---
+
+When working on Python files:
+
+- Always think about security first: injection, deserialization, crypto, secrets, and filesystem/network access.
+- Before large changes, run:
+  - `pytest` to ensure tests pass.
+  - `bandit -r python_src` to scan for vulnerabilities.
+
+When Bandit reports issues:
+- Triage findings and propose concrete fixes.
+- Prefer using standard, battle‑tested libraries (e.g., `hashlib`, `hmac`, `secrets`) over custom crypto.
+- Do not suppress Bandit rules unless you explain why in a code comment and the user agrees.
+
+When touching dependency files (`pyproject.toml`, `requirements.txt`):
+- Avoid adding unmaintained or suspicious packages.
+- Suggest running a dependency scanner (e.g., `pip-audit`) for critical paths.

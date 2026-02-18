@@ -15,13 +15,13 @@ def test_no_import_collisions():
 
     # Files that use wildcard imports from schemas
     files_to_check = [
-        "main.py",
+        "core/main.py",
         "adapters/base.py",
         "adapters/kevel.py",
         "adapters/triton_digital.py",
     ]
 
-    base_path = Path(__file__).parent.parent.parent
+    base_path = Path(__file__).parent.parent.parent / "python_src" / "src"
 
     issues = []
 
@@ -87,7 +87,7 @@ def test_models_use_correct_imports():
     """Verify that SQLAlchemy queries use Model* prefixed classes."""
 
     base_path = Path(__file__).parent.parent.parent
-    main_file = base_path / "src" / "core" / "main.py"
+    main_file = base_path / "python_src" / "src" / "core" / "main.py"
 
     with open(main_file) as f:
         content = f.read()
@@ -110,9 +110,9 @@ def test_models_use_correct_imports():
 def test_wildcard_imports_documented():
     """Ensure all wildcard imports have warning comments."""
 
-    base_path = Path(__file__).parent.parent.parent
+    base_path = Path(__file__).parent.parent.parent / "python_src" / "src"
     files_with_wildcards = [
-        "main.py",
+        "core/main.py",
         "adapters/base.py",
         "adapters/kevel.py",
         "adapters/triton_digital.py",
