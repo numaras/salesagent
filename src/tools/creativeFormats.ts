@@ -9,6 +9,8 @@ import type {
   ListCreativeFormatsResponse,
 } from "../types/adcp.js";
 import type { ListCreativeFormatsRequest } from "./types.js";
+import { getDb } from "../db/client.js";
+import { listCreativeAgentsByTenant } from "../db/repositories/creative-agent.js";
 
 const DEFAULT_FORMATS: CreativeFormatItem[] = [
   { format_id: { agent_url: "https://creative.adcontextprotocol.org", id: "display_image" }, name: "Display Image" },
@@ -16,12 +18,26 @@ const DEFAULT_FORMATS: CreativeFormatItem[] = [
 ];
 
 export async function runListCreativeFormats(
-  _ctx: ToolContext,
+  ctx: ToolContext,
   req: ListCreativeFormatsRequest
 ): Promise<ListCreativeFormatsResponse> {
-  const agentUrl = req.agent_url;
-  const formats = agentUrl
-    ? DEFAULT_FORMATS.filter((f) => f.format_id.agent_url === agentUrl)
-    : [...DEFAULT_FORMATS];
+  const db = getDb();
+  const agents = await listCreativeAgentsByTenant(db, ctx.tenantId);
+
+  let formats: CreativeFormatItem[];
+
+  if (agents.length === 0) {
+    formats = [...DEFAULT_FORMATS];
+  } else {
+    formats = agents.map((agent) => ({
+      format_id: { agent_url: agent.agentUrl, id: agent.name.toLowerCase().replace(/\s+/g, "_") },
+      name: agent.name,
+    }));
+  }
+
+  if (req.agent_url) {
+    formats = formats.filter((f) => f.format_id.agent_url === req.agent_url);
+  }
+
   return { formats };
 }

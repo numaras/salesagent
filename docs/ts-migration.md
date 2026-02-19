@@ -76,6 +76,19 @@ Replace `DATABASE_URL` with your PostgreSQL connection string. The app will list
 
 - **Docker/nginx:** Point nginx to the TS app (e.g. one Node process on PORT). Python can be retired from production; keep `python_src` in the repo for reference or remove after cutover.
 
+## Multi-stage Docker build
+
+The `Dockerfile.ts` uses a multi-stage build:
+
+1. **frontend-build** stage — installs frontend dependencies and runs `npm run build` to produce the React SPA.
+2. **app** stage — installs backend dependencies, copies source and migrations, then copies the built frontend from stage 1 into `dist/frontend`.
+
+A single `docker compose up --build postgres ts-app` builds everything (frontend + backend) and starts Postgres, runs migrations, and launches the app. The admin UI is served at `/admin` from the built React SPA — no separate build step is needed.
+
+**Metrics:** `GET /metrics` returns Prometheus-format metrics.
+
+**Sessions:** The app uses `express-session` with an in-memory store by default. For production, switch to `connect-pg-simple` (or another persistent store) so sessions survive restarts.
+
 ## Remaining optional ports (Phase 5)
 
 - **Services:** GAM inventory sync, setup checklist, policy, Slack, activity feed, AI agents, delivery webhooks – can be ported incrementally; stubs/interfaces exist where needed.

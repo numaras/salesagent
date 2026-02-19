@@ -13,7 +13,7 @@ import {
   getTenantBySubdomain,
   getTenantByVirtualHost,
 } from "../../db/repositories/tenant.js";
-import { BEARER_PREFIX, DEFAULT_TENANT_ID, HEADER_NAMES } from "../constants.js";
+import { BEARER_PREFIX, DEFAULT_TENANT_ID, HEADER_NAMES, LOCALHOST_HOSTNAMES, SKIP_SUBDOMAINS } from "../constants.js";
 import { getHeaderCaseInsensitive } from "../httpHeaders.js";
 import type { HeadersLike } from "../httpHeaders.js";
 import type { ToolContext } from "./types.js";
@@ -59,8 +59,7 @@ export async function resolveTenantFromHeaders(
 
   // 2. Subdomain from Host
   const subdomain = host.includes(".") ? host.split(".")[0] : null;
-  const skipSubdomains = ["localhost", "adcp-sales-agent", "www", "admin"];
-  if (subdomain && !skipSubdomains.includes(subdomain.toLowerCase())) {
+  if (subdomain && !SKIP_SUBDOMAINS.includes(subdomain.toLowerCase() as typeof SKIP_SUBDOMAINS[number])) {
     const tenantBySub = await getTenantBySubdomain(db, subdomain);
     if (tenantBySub?.tenantId) {
       return { tenantId: tenantBySub.tenantId, subdomain };
@@ -77,7 +76,7 @@ export async function resolveTenantFromHeaders(
 
   // 4. Localhost fallback -> default tenant
   const hostname = host.split(":")[0]?.toLowerCase() ?? "";
-  if (["localhost", "127.0.0.1", "localhost.localdomain"].includes(hostname)) {
+  if ((LOCALHOST_HOSTNAMES as readonly string[]).includes(hostname)) {
     const defaultTenant = await getTenantBySubdomain(db, "default");
     if (defaultTenant?.tenantId) {
       return { tenantId: defaultTenant.tenantId, subdomain: DEFAULT_TENANT_ID };

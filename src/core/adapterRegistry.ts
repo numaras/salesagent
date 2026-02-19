@@ -87,3 +87,12 @@ export async function getAdapter(
 export function getRegisteredTypes(): string[] {
   return Array.from(registry.keys());
 }
+
+/**
+ * Build a Principal from ToolContext, using anonymous defaults if no principal is attached.
+ * Eliminates the repeated `ctx.principal ? toPrincipal(...) : { ... }` pattern.
+ */
+export function ensurePrincipal(ctx: { principal?: PrincipalLike | null; principalId?: string | null }): Principal {
+  if (ctx.principal) return toPrincipal(ctx.principal);
+  return { principal_id: ctx.principalId ?? "", name: "anonymous", platform_mappings: {} };
+}

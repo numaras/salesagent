@@ -32,3 +32,24 @@ export const HEADER_NAMES = {
 export const DEFAULT_TENANT_ID = "default";
 
 export const BEARER_PREFIX = "bearer ";
+
+export const MEDIA_BUY_STATUS = {
+  DRAFT: "draft",
+  PENDING: "pending",
+  ACTIVE: "active",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+} as const;
+
+export const DEFAULT_CURRENCY = "USD";
+
+export const WORKFLOW_STATUS = {
+  PENDING: "pending",
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+  FAILED: "failed",
+  REQUIRES_APPROVAL: "requires_approval",
+} as const;
+
+export const LOCALHOST_HOSTNAMES = ["localhost", "127.0.0.1", "localhost.localdomain"] as const;
+export const SKIP_SUBDOMAINS = ["localhost", "adcp-sales-agent", "www", "admin"] as const;

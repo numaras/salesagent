@@ -8,6 +8,13 @@
       "when": 1771454015571,
       "tag": "0000_glorious_george_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771511439795,
+      "tag": "0001_mighty_mad_thinker",
+      "breakpoints": true
     }
   ]
 }
