@@ -8,6 +8,12 @@ import { getDb } from "../../db/client.js";
 import { tenantAuthConfigs } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
 
+function buildRedirectUri(req: Request): string {
+  const proto = req.get("x-forwarded-proto") ?? req.protocol ?? "http";
+  const host = req.get("x-forwarded-host") ?? req.get("host") ?? "localhost:3000";
+  return `${proto}://${host}/admin/api/oidc/callback`;
+}
+
 export function createOidcRouter(): Router {
   const router = Router();
 
@@ -185,7 +191,7 @@ export function createOidcRouter(): Router {
       }
 
       const discovery = await fetchOidcDiscovery(config.oidcDiscoveryUrl);
-      const redirectUri = `${req.protocol}://${req.get("host") ?? "localhost:3000"}/admin/api/oidc/callback`;
+      const redirectUri = buildRedirectUri(req);
       const scopes = config.oidcScopes ?? "openid email profile";
 
       const params = new URLSearchParams({
@@ -220,7 +226,7 @@ export function createOidcRouter(): Router {
       }
 
       const discovery = await fetchOidcDiscovery(config.oidcDiscoveryUrl);
-      const redirectUri = `${req.protocol}://${req.get("host") ?? "localhost:3000"}/admin/api/oidc/callback`;
+      const redirectUri = buildRedirectUri(req);
 
       const tokens = await exchangeCodeForTokens(discovery.token_endpoint, code, {
         clientId: config.oidcClientId,

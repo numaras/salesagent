@@ -82,7 +82,10 @@ export async function exchangeCodeForTokens(
       client_secret: config.clientSecret,
     }),
   });
-  if (!res.ok) throw new Error("Token exchange failed: " + res.status);
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => "");
+    throw new Error(`Token exchange failed (${res.status}): ${errorBody}`);
+  }
   return res.json() as Promise<{ access_token: string; id_token?: string; refresh_token?: string }>;
 }
 
