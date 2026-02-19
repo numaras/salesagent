@@ -31,7 +31,14 @@ export function createAuthRouter(): Router {
   router.get("/auth/session", (req: Request, res: Response) => {
     const sess = sessionData(req);
     if (sess.authenticated) {
-      res.json({ authenticated: true, loginTime: sess.loginTime ?? null });
+      res.json({
+        authenticated: true,
+        email: sess.email ?? null,
+        role: sess.role ?? null,
+        userId: sess.userId ?? null,
+        tenantId: sess.tenantId ?? null,
+        loginTime: sess.loginTime ?? null,
+      });
     } else {
       res.json({ authenticated: false });
     }

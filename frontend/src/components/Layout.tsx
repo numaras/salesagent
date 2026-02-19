@@ -1,4 +1,6 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { apiFetch } from "../lib/api";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: DashboardIcon },
@@ -18,7 +20,31 @@ const navItems = [
   { to: "/gam-config", label: "GAM Config", icon: GamIcon },
 ];
 
+interface Session {
+  authenticated: boolean;
+  email?: string | null;
+  role?: string | null;
+}
+
 export default function Layout() {
+  const navigate = useNavigate();
+  const [session, setSession] = useState<Session>({ authenticated: false });
+
+  useEffect(() => {
+    apiFetch<Session>("/auth/session").then(setSession).catch(() => {});
+  }, []);
+
+  async function handleLogout() {
+    try {
+      await apiFetch("/auth/logout", { method: "POST" });
+    } catch { /* ignore */ }
+    setSession({ authenticated: false });
+    navigate("/login");
+  }
+
+  const userInitial = session.email ? session.email[0].toUpperCase() : "?";
+  const displayName = session.email ?? "Not logged in";
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
@@ -62,10 +88,23 @@ export default function Layout() {
         <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-8">
           <h1 className="text-lg font-semibold text-gray-800">Admin Panel</h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">Default Tenant</span>
+            <span className="text-sm text-gray-500" title={displayName}>
+              {session.email ?? "Guest"}
+            </span>
+            {session.role && (
+              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600">
+                {session.role}
+              </span>
+            )}
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-medium text-indigo-700">
-              A
+              {userInitial}
             </div>
+            <button
+              onClick={handleLogout}
+              className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Logout
+            </button>
           </div>
         </header>
 
