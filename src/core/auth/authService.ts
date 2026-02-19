@@ -74,9 +74,13 @@ export async function resolveTenantFromHeaders(
     if (byId?.tenantId) return { tenantId: byId.tenantId };
   }
 
-  // 4. Localhost fallback -> default tenant
+  // 4. Single-tenant fallback: localhost or any IP/unknown host -> default tenant
+  // In single-tenant mode (ADCP_MULTI_TENANT !== "true"), any unresolved host
+  // falls back to the default tenant. This matches Python's is_single_tenant_mode().
+  const isSingleTenant = process.env.ADCP_MULTI_TENANT?.toLowerCase() !== "true";
   const hostname = host.split(":")[0]?.toLowerCase() ?? "";
-  if ((LOCALHOST_HOSTNAMES as readonly string[]).includes(hostname)) {
+  const isLocalhost = (LOCALHOST_HOSTNAMES as readonly string[]).includes(hostname);
+  if (isLocalhost || isSingleTenant) {
     const defaultTenant = await getTenantBySubdomain(db, "default");
     if (defaultTenant?.tenantId) {
       return { tenantId: defaultTenant.tenantId, subdomain: DEFAULT_TENANT_ID };
