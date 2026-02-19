@@ -171,6 +171,38 @@ export function createOidcRouter(): Router {
     }
   });
 
+  router.get("/oidc/login", async (req: Request, res: Response) => {
+    try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      const tenantId = ctx?.tenantId ?? "default";
+
+      const config = await getAuthConfig(tenantId);
+      if (!config?.oidcEnabled || !config.oidcDiscoveryUrl || !config.oidcClientId) {
+        res.status(400).send("SSO is not enabled for this tenant. Configure it in SSO Config.");
+        return;
+      }
+
+      const discovery = await fetchOidcDiscovery(config.oidcDiscoveryUrl);
+      const redirectUri = `${req.protocol}://${req.get("host") ?? "localhost:3000"}/admin/api/oidc/callback`;
+      const scopes = config.oidcScopes ?? "openid email profile";
+
+      const params = new URLSearchParams({
+        client_id: config.oidcClientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        scope: scopes,
+        state: tenantId,
+      });
+
+      res.redirect(`${discovery.authorization_endpoint}?${params}`);
+    } catch (err) {
+      const { body } = toHttpError(err);
+      res.status(500).send(`SSO login failed: ${body.message}`);
+    }
+  });
+
   router.get("/oidc/callback", async (req: Request, res: Response) => {
     try {
       const code = req.query.code as string | undefined;
