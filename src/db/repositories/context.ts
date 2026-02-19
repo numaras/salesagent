@@ -37,3 +37,14 @@ export async function insertContext(
   const inserted = await db.insert(contexts).values(row).returning();
   return inserted[0]!;
 }
+
+export async function updateContextConversation(
+  db: DrizzleDb,
+  contextId: string,
+  conversationHistory: unknown[],
+): Promise<void> {
+  await db
+    .update(contexts)
+    .set({ conversationHistory, lastActivityAt: new Date() })
+    .where(eq(contexts.contextId, contextId));
+}

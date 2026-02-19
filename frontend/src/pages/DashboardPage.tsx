@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 
 interface DashboardData {
@@ -16,8 +17,19 @@ const fallback: DashboardData = {
 };
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [data, setData] = useState<DashboardData>(fallback);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<{ setupComplete: boolean }>("/onboarding/status")
+      .then((status) => {
+        if (!status.setupComplete) {
+          navigate("/onboarding", { replace: true });
+        }
+      })
+      .catch(() => {});
+  }, [navigate]);
 
   useEffect(() => {
     apiFetch<DashboardData>("/tenants/default/dashboard")

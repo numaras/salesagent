@@ -11,6 +11,15 @@ import { createPrincipalsRouter } from "./routes/principals.js";
 import { createMediaBuysRouter } from "./routes/mediaBuys.js";
 import { createUsersRouter } from "./routes/users.js";
 import { createSettingsRouter } from "./routes/settings.js";
+import { createWorkflowsRouter } from "./routes/workflows.js";
+import { createCreativesRouter } from "./routes/creatives.js";
+import { createPropertiesRouter } from "./routes/properties.js";
+import { createPublisherPartnersRouter } from "./routes/publisherPartners.js";
+import { createCreativeAgentsRouter } from "./routes/creativeAgents.js";
+import { createInventoryRouter } from "./routes/inventory.js";
+import { createPolicyRouter } from "./routes/policy.js";
+import { createOperationsRouter } from "./routes/operations.js";
+import { createOnboardingRouter } from "./routes/onboarding.js";
 
 export function createAdminRouter(): Router {
   const router = Router();
@@ -26,6 +35,15 @@ export function createAdminRouter(): Router {
   router.use("/api", createMediaBuysRouter());
   router.use("/api", createUsersRouter());
   router.use("/api", createSettingsRouter());
+  router.use("/api", createWorkflowsRouter());
+  router.use("/api", createCreativesRouter());
+  router.use("/api", createPropertiesRouter());
+  router.use("/api", createPublisherPartnersRouter());
+  router.use("/api", createCreativeAgentsRouter());
+  router.use("/api", createInventoryRouter());
+  router.use("/api", createPolicyRouter());
+  router.use("/api", createOperationsRouter());
+  router.use("/api", createOnboardingRouter());
 
   return router;
 }
