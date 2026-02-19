@@ -3,6 +3,7 @@ import { resolveFromHeaders, toToolContext } from "../../core/auth/authService.j
 import { TenantError, toHttpError, ValidationError } from "../../core/errors.js";
 import { headersFromNodeRequest } from "../../core/httpHeaders.js";
 import { getAuthConfig, updateAuthConfig } from "../../services/AuthConfigService.js";
+import { fetchOidcDiscovery, exchangeCodeForTokens, fetchUserInfo } from "../../core/auth/oauth.js";
 import { getDb } from "../../db/client.js";
 import { tenantAuthConfigs } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
@@ -97,6 +98,31 @@ export function createOidcRouter(): Router {
     }
   });
 
+  router.post("/oidc/verify", async (req: Request, res: Response) => {
+    try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
+
+      const config = await getAuthConfig(ctx.tenantId);
+      if (!config || !config.oidcClientId || !config.oidcDiscoveryUrl) {
+        throw new ValidationError("Save OIDC config before verifying");
+      }
+
+      const db = getDb();
+      await db
+        .update(tenantAuthConfigs)
+        .set({ oidcVerifiedAt: new Date(), updatedAt: new Date() })
+        .where(eq(tenantAuthConfigs.tenantId, ctx.tenantId));
+
+      res.json({ verified: true, oidc_verified_at: new Date().toISOString() });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
   router.post("/oidc/enable", async (req: Request, res: Response) => {
     try {
       const headers = headersFromNodeRequest(req);
@@ -142,6 +168,54 @@ export function createOidcRouter(): Router {
     } catch (err) {
       const { status, body } = toHttpError(err);
       res.status(status).json(body);
+    }
+  });
+
+  router.get("/oidc/callback", async (req: Request, res: Response) => {
+    try {
+      const code = req.query.code as string | undefined;
+      const state = req.query.state as string | undefined;
+      if (!code) {
+        res.status(400).send("Missing code parameter from identity provider");
+        return;
+      }
+
+      const tenantId = state ?? "default";
+      const config = await getAuthConfig(tenantId);
+      if (!config?.oidcDiscoveryUrl || !config.oidcClientId) {
+        res.status(400).send("OIDC not configured for this tenant");
+        return;
+      }
+
+      const discovery = await fetchOidcDiscovery(config.oidcDiscoveryUrl);
+      const redirectUri = `${req.protocol}://${req.get("host") ?? "localhost:3000"}/admin/api/oidc/callback`;
+
+      const tokens = await exchangeCodeForTokens(discovery.token_endpoint, code, {
+        clientId: config.oidcClientId,
+        clientSecret: config.oidcClientSecretEncrypted ?? "",
+        redirectUri,
+        scopes: (config.oidcScopes ?? "openid email profile").split(" "),
+      });
+
+      const userInfo = await fetchUserInfo(discovery.userinfo_endpoint, tokens.access_token);
+
+      const db = getDb();
+      await db
+        .update(tenantAuthConfigs)
+        .set({ oidcVerifiedAt: new Date(), updatedAt: new Date() })
+        .where(eq(tenantAuthConfigs.tenantId, tenantId));
+
+      if (req.session) {
+        const s = req.session as unknown as Record<string, unknown>;
+        s.userId = userInfo.sub ?? userInfo.email;
+        s.email = userInfo.email;
+        s.tenantId = tenantId;
+      }
+
+      res.redirect("/admin/");
+    } catch (err) {
+      const { body } = toHttpError(err);
+      res.status(500).send(`SSO callback error: ${body.message}`);
     }
   });
 

@@ -34,6 +34,7 @@ const DISCOVERY_URLS: Record<string, string> = {
 export default function SsoConfigPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -96,16 +97,60 @@ export default function SsoConfigPage() {
     }
   }
 
-  async function toggleEnabled() {
+  async function handleTestConnection() {
+    setError("");
+    setSuccess("");
+    setTesting(true);
+    try {
+      if (!discoveryUrl) {
+        setError("Discovery URL is required to test the connection");
+        return;
+      }
+      const res = await fetch(discoveryUrl);
+      if (!res.ok) {
+        setError(`Discovery endpoint returned ${res.status}. Check the URL.`);
+        return;
+      }
+      const data = await res.json();
+      if (!data.authorization_endpoint || !data.token_endpoint) {
+        setError("Discovery response is missing required endpoints (authorization_endpoint, token_endpoint).");
+        return;
+      }
+      setSuccess(`Connection OK. Issuer: ${data.issuer ?? "unknown"}. Authorization endpoint found.`);
+    } catch {
+      setError("Could not reach discovery URL. Check the URL and CORS settings.");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function handleVerifyAndEnable() {
     setError("");
     setSuccess("");
     try {
-      const endpoint = enabled ? "/oidc/disable" : "/oidc/enable";
-      await apiFetch(endpoint, { method: "POST" });
-      setEnabled(!enabled);
-      setSuccess(enabled ? "SSO disabled" : "SSO enabled");
+      if (!clientId || !discoveryUrl) {
+        setError("Save config first (Client ID and Discovery URL required)");
+        return;
+      }
+      await apiFetch("/oidc/verify", { method: "POST" });
+      setVerifiedAt(new Date().toISOString());
+      await apiFetch("/oidc/enable", { method: "POST" });
+      setEnabled(true);
+      setSuccess("SSO verified and enabled");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Toggle failed");
+      setError(err instanceof Error ? err.message : "Enable failed");
+    }
+  }
+
+  async function handleDisable() {
+    setError("");
+    setSuccess("");
+    try {
+      await apiFetch("/oidc/disable", { method: "POST" });
+      setEnabled(false);
+      setSuccess("SSO disabled");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Disable failed");
     }
   }
 
@@ -204,18 +249,36 @@ export default function SsoConfigPage() {
           </FormField>
         </div>
 
+        <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <p className="text-sm font-medium text-blue-800 mb-1">Callback URI</p>
+          <p className="text-xs text-blue-600 mb-2">Copy this into your identity provider&apos;s &quot;Redirect URI&quot; / &quot;Callback URL&quot; setting:</p>
+          <code className="block rounded bg-white px-3 py-2 text-sm font-mono text-blue-900 border border-blue-200 select-all">
+            {window.location.origin}/admin/api/oidc/callback
+          </code>
+        </div>
+
         <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-6">
-          <button
-            type="button"
-            onClick={toggleEnabled}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              enabled
-                ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                : "bg-green-600 text-white hover:bg-green-700"
-            }`}
-          >
-            {enabled ? "Disable SSO" : "Enable SSO"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={testing}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+            >
+              {testing ? "Testing..." : "Test Connection"}
+            </button>
+            <button
+              type="button"
+              onClick={enabled ? handleDisable : handleVerifyAndEnable}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                enabled
+                  ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  : "bg-green-600 text-white hover:bg-green-700"
+              }`}
+            >
+              {enabled ? "Disable SSO" : "Verify & Enable SSO"}
+            </button>
+          </div>
 
           <button
             type="button"
