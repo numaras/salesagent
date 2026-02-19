@@ -66,7 +66,7 @@ app.use("/admin", createAdminRouter());
 const frontendDir = join(process.cwd(), "dist", "frontend");
 if (existsSync(frontendDir)) {
   app.use("/admin", express.static(frontendDir));
-  app.get("/admin/*", (_req, res) => { res.sendFile(join(frontendDir, "index.html")); });
+  app.get("/admin/:path(*)", (_req, res) => { res.sendFile(join(frontendDir, "index.html")); });
 } else {
   app.get("/admin", (_req, res) => {
     res.type("html").send(
