@@ -1,36 +1,96 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
+import FormModal from "../components/FormModal";
+import FormField, { Input } from "../components/FormField";
+import FormSelect from "../components/FormSelect";
 
 interface User {
   id: string;
+  user_id?: string;
   name: string;
   email: string;
   role: string;
   is_active: boolean;
 }
 
+const ROLES = [
+  { value: "admin", label: "Admin" },
+  { value: "manager", label: "Manager" },
+  { value: "viewer", label: "Viewer" },
+];
+
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+
+  function load() {
+    setLoading(true);
     apiFetch<{ users: User[] }>("/users")
       .then((res) => setUsers(res.users ?? []))
       .catch(() => setUsers([]))
       .finally(() => setLoading(false));
-  }, []);
+  }
 
-  function toggleActive(userId: string) {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, is_active: !u.is_active } : u)),
-    );
+  useEffect(() => { load(); }, []);
+
+  function openInvite() {
+    setEmail("");
+    setName("");
+    setRole("");
+    setShowForm(true);
+  }
+
+  async function handleSave() {
+    if (!email.trim()) { alert("Email is required"); return; }
+    setSaving(true);
+    try {
+      const body = {
+        tenant_id: "default",
+        user_id: crypto.randomUUID().slice(0, 8),
+        email: email.trim(),
+        name: name.trim() || email.trim().split("@")[0],
+        role: role || "viewer",
+        is_active: true,
+      };
+      await apiFetch("/users", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      setShowForm(false);
+      load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleActive(user: User) {
+    const prev = users;
+    setUsers((u) => u.map((x) => (x.id === user.id ? { ...x, is_active: !x.is_active } : x)));
+    try {
+      await apiFetch(`/users/${user.user_id ?? user.id}/toggle`, { method: "POST" });
+      load();
+    } catch (e) {
+      setUsers(prev);
+      alert(e instanceof Error ? e.message : "Toggle failed");
+    }
   }
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-900">Users</h2>
-        <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700">
+        <button
+          onClick={openInvite}
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
+        >
           Invite User
         </button>
       </div>
@@ -50,9 +110,7 @@ export default function UsersPage() {
               <SkeletonRows />
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-400">
-                  No users found
-                </td>
+                <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-400">No users found</td>
               </tr>
             ) : (
               users.map((u) => (
@@ -73,7 +131,7 @@ export default function UsersPage() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <button
-                      onClick={() => toggleActive(u.id)}
+                      onClick={() => toggleActive(u)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         u.is_active ? "bg-indigo-600" : "bg-gray-300"
                       }`}
@@ -91,6 +149,24 @@ export default function UsersPage() {
           </tbody>
         </table>
       </div>
+
+      <FormModal
+        title="Invite User"
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        onSave={handleSave}
+        saving={saving}
+      >
+        <FormField label="Email">
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@example.com" required />
+        </FormField>
+        <FormField label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional — defaults to email prefix" />
+        </FormField>
+        <FormField label="Role">
+          <FormSelect options={ROLES} value={role} onChange={(e) => setRole(e.target.value)} placeholder="Select role (default: viewer)" />
+        </FormField>
+      </FormModal>
     </div>
   );
 }

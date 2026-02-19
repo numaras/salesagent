@@ -20,6 +20,8 @@ import { createInventoryRouter } from "./routes/inventory.js";
 import { createPolicyRouter } from "./routes/policy.js";
 import { createOperationsRouter } from "./routes/operations.js";
 import { createOnboardingRouter } from "./routes/onboarding.js";
+import { createOidcRouter } from "./routes/oidc.js";
+import { createGamRouter } from "./routes/gam.js";
 
 export function createAdminRouter(): Router {
   const router = Router();
@@ -44,6 +46,8 @@ export function createAdminRouter(): Router {
   router.use("/api", createPolicyRouter());
   router.use("/api", createOperationsRouter());
   router.use("/api", createOnboardingRouter());
+  router.use("/api", createOidcRouter());
+  router.use("/api", createGamRouter());
 
   return router;
 }

@@ -15,6 +15,8 @@ import InventoryPage from "./pages/InventoryPage";
 import PolicyPage from "./pages/PolicyPage";
 import OperationsPage from "./pages/OperationsPage";
 import OnboardingPage from "./pages/OnboardingPage";
+import SsoConfigPage from "./pages/SsoConfigPage";
+import GamConfigPage from "./pages/GamConfigPage";
 
 export default function App() {
   return (
@@ -35,6 +37,8 @@ export default function App() {
         <Route path="policy" element={<PolicyPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="sso" element={<SsoConfigPage />} />
+        <Route path="gam-config" element={<GamConfigPage />} />
       </Route>
     </Routes>
   );

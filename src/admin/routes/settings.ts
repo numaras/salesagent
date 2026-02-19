@@ -8,19 +8,23 @@ import { getTenantById } from "../../db/repositories/tenant.js";
 import { getAdapterConfigByTenant } from "../../db/repositories/adapter-config.js";
 import { tenants, adapterConfig } from "../../db/schema.js";
 
+async function resolveTenant(req: Request) {
+  const headers = headersFromNodeRequest(req);
+  const result = await resolveFromHeaders(headers);
+  const ctx = toToolContext(result);
+  if (!ctx?.tenantId) throw new TenantError();
+  const db = getDb();
+  const tenant = await getTenantById(db, ctx.tenantId);
+  if (!tenant) throw new NotFoundError("Tenant", ctx.tenantId);
+  return { db, ctx, tenant };
+}
+
 export function createSettingsRouter(): Router {
   const router = Router();
 
   router.get("/settings", async (req: Request, res: Response) => {
     try {
-      const headers = headersFromNodeRequest(req);
-      const result = await resolveFromHeaders(headers);
-      const ctx = toToolContext(result);
-      if (!ctx?.tenantId) throw new TenantError();
-      const db = getDb();
-
-      const tenant = await getTenantById(db, ctx.tenantId);
-      if (!tenant) throw new NotFoundError("Tenant", ctx.tenantId);
+      const { db, ctx, tenant } = await resolveTenant(req);
       const adapter = await getAdapterConfigByTenant(db, ctx.tenantId);
 
       res.json({
@@ -28,6 +32,7 @@ export function createSettingsRouter(): Router {
           tenant_id: tenant.tenantId,
           name: tenant.name,
           subdomain: tenant.subdomain,
+          virtual_host: tenant.virtualHost,
           ad_server: tenant.adServer,
           brand_manifest_policy: tenant.brandManifestPolicy,
           auth_setup_mode: tenant.authSetupMode,
@@ -40,6 +45,11 @@ export function createSettingsRouter(): Router {
               config_json: adapter.configJson,
             }
           : null,
+        // TODO: populate when tenant schema has these columns
+        slack: { slack_webhook_url: "", slack_audit_webhook_url: "" },
+        ai: { provider: "", model: "", api_key: "" },
+        access: { authorized_domains: [] as string[], authorized_emails: [] as string[] },
+        business_rules: { approval_mode: "manual", order_name_template: "", line_item_name_template: "" },
       });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -49,14 +59,7 @@ export function createSettingsRouter(): Router {
 
   router.post("/settings/general", async (req: Request, res: Response) => {
     try {
-      const headers = headersFromNodeRequest(req);
-      const result = await resolveFromHeaders(headers);
-      const ctx = toToolContext(result);
-      if (!ctx?.tenantId) throw new TenantError();
-      const db = getDb();
-
-      const existing = await getTenantById(db, ctx.tenantId);
-      if (!existing) throw new NotFoundError("Tenant", ctx.tenantId);
+      const { db, ctx } = await resolveTenant(req);
 
       const body = req.body as Record<string, unknown>;
       if (!body.name || typeof body.name !== "string") {
@@ -67,7 +70,8 @@ export function createSettingsRouter(): Router {
         .update(tenants)
         .set({
           name: body.name,
-          brandManifestPolicy: (body.brand_manifest_policy as string) ?? existing.brandManifestPolicy,
+          virtualHost: typeof body.virtual_host === "string" ? body.virtual_host : undefined,
+          brandManifestPolicy: (body.brand_manifest_policy as string) ?? undefined,
           updatedAt: new Date(),
         })
         .where(eq(tenants.tenantId, ctx.tenantId))
@@ -77,6 +81,7 @@ export function createSettingsRouter(): Router {
       res.json({
         tenant_id: row.tenantId,
         name: row.name,
+        virtual_host: row.virtualHost,
         brand_manifest_policy: row.brandManifestPolicy,
         updated_at: row.updatedAt,
       });
@@ -88,11 +93,7 @@ export function createSettingsRouter(): Router {
 
   router.post("/settings/adapter", async (req: Request, res: Response) => {
     try {
-      const headers = headersFromNodeRequest(req);
-      const result = await resolveFromHeaders(headers);
-      const ctx = toToolContext(result);
-      if (!ctx?.tenantId) throw new TenantError();
-      const db = getDb();
+      const { db, ctx } = await resolveTenant(req);
 
       const body = req.body as Record<string, unknown>;
       if (!body.adapter_type || typeof body.adapter_type !== "string") {
@@ -128,6 +129,106 @@ export function createSettingsRouter(): Router {
         const row = inserted[0]!;
         res.status(201).json({ adapter_type: row.adapterType, created_at: row.createdAt });
       }
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  // TODO: tenant schema needs slack_webhook_url / slack_audit_webhook_url columns
+  router.post("/settings/slack", async (req: Request, res: Response) => {
+    try {
+      await resolveTenant(req);
+      // Stub — returns success until tenants table has slack columns
+      res.json({ success: true });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  // TODO: tenant schema needs ai_config JSONB column
+  router.post("/settings/ai", async (req: Request, res: Response) => {
+    try {
+      await resolveTenant(req);
+      // Stub — returns success until tenants table has ai_config column
+      res.json({ success: true });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  // TODO: tenant schema needs authorized_domains JSONB array column
+  router.post("/settings/domains/add", async (req: Request, res: Response) => {
+    try {
+      await resolveTenant(req);
+      const body = req.body as Record<string, unknown>;
+      if (!body.domain || typeof body.domain !== "string") {
+        throw new ValidationError("domain is required");
+      }
+      // Stub — returns success until tenants table has authorized_domains column
+      res.json({ success: true });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  // TODO: tenant schema needs authorized_domains JSONB array column
+  router.post("/settings/domains/remove", async (req: Request, res: Response) => {
+    try {
+      await resolveTenant(req);
+      const body = req.body as Record<string, unknown>;
+      if (!body.domain || typeof body.domain !== "string") {
+        throw new ValidationError("domain is required");
+      }
+      // Stub — returns success until tenants table has authorized_domains column
+      res.json({ success: true });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  // TODO: tenant schema needs authorized_emails JSONB array column
+  router.post("/settings/emails/add", async (req: Request, res: Response) => {
+    try {
+      await resolveTenant(req);
+      const body = req.body as Record<string, unknown>;
+      if (!body.email || typeof body.email !== "string") {
+        throw new ValidationError("email is required");
+      }
+      // Stub — returns success until tenants table has authorized_emails column
+      res.json({ success: true });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  // TODO: tenant schema needs authorized_emails JSONB array column
+  router.post("/settings/emails/remove", async (req: Request, res: Response) => {
+    try {
+      await resolveTenant(req);
+      const body = req.body as Record<string, unknown>;
+      if (!body.email || typeof body.email !== "string") {
+        throw new ValidationError("email is required");
+      }
+      // Stub — returns success until tenants table has authorized_emails column
+      res.json({ success: true });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  // TODO: tenant schema needs business_rules JSONB column
+  router.post("/settings/business-rules", async (req: Request, res: Response) => {
+    try {
+      await resolveTenant(req);
+      // Stub — returns success until tenants table has business-rules columns
+      res.json({ success: true });
     } catch (err) {
       const { status, body } = toHttpError(err);
       res.status(status).json(body);
