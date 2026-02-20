@@ -17,6 +17,7 @@ import {
   appendToConversation,
 } from "../core/contextManager.js";
 import { sendPushNotification } from "../services/ProtocolWebhookService.js";
+import { extractTestContext, applyTestingHooks } from "../core/testingHooks.js";
 import * as tools from "../tools/index.js";
 
 /* ------------------------------------------------------------------ */
@@ -340,7 +341,10 @@ async function handleMessageSend(
   task.status = "running";
 
   try {
-    const result = await handler(ctx, extracted.params);
+    let result = await handler(ctx, extracted.params);
+    if (ctx.testContext) {
+      result = applyTestingHooks(result, ctx.testContext, extracted.toolName);
+    }
     task.status = "completed";
     task.artifacts = buildArtifacts(result);
     task.completedAt = new Date().toISOString();
@@ -421,7 +425,10 @@ async function handleLegacyToolCall(
   }
 
   try {
-    const result = await handler(ctx, params);
+    let result = await handler(ctx, params);
+    if (ctx.testContext) {
+      result = applyTestingHooks(result, ctx.testContext, method);
+    }
     return rpcOk(requestId, result);
   } catch (err) {
     return rpcErr(requestId, toJsonRpcError(err));
@@ -495,6 +502,12 @@ export async function handleA2aRequest(
   const headers = headersFromNodeRequest(req);
   const authResult = await resolveFromHeaders(headers);
   const ctx = toToolContext(authResult);
+  if (ctx) {
+    const testContext = extractTestContext(headers);
+    if (testContext) {
+      ctx.testContext = testContext;
+    }
+  }
 
   const results: JsonRpcResponse[] = [];
   for (const r of requests) {

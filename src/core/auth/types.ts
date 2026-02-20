@@ -3,6 +3,7 @@
  */
 
 import type { PrincipalRow } from "../../db/repositories/principal.js";
+import type { TestContext } from "../testingHooks.js";
 
 export interface ToolContext {
   tenantId: string;
@@ -10,4 +11,5 @@ export interface ToolContext {
   principal: PrincipalRow | null;
   /** When token was the tenant admin token, principalId is `${tenantId}_admin` */
   isAdminToken?: boolean;
+  testContext?: TestContext | null;
 }

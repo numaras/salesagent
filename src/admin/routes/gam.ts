@@ -8,6 +8,8 @@ import { getAdapterConfigByTenant } from "../../db/repositories/adapter-config.j
 import { adapterConfig, currencyLimits } from "../../db/schema.js";
 import { getFormatMetrics } from "../../services/FormatMetricsService.js";
 
+import { createGamClient } from "../../adapters/gam/client.js";
+
 export function createGamRouter(): Router {
   const router = Router();
 
@@ -26,8 +28,28 @@ export function createGamRouter(): Router {
         return;
       }
 
-      // TODO: Real GAM API connectivity test
-      res.json({ connected: true, network_code: adapter.gamNetworkCode });
+      try {
+        const client = createGamClient({
+          networkCode: adapter.gamNetworkCode,
+          advertiserId: null,
+          traffickerId: adapter.gamTraffickerId,
+          refreshToken: adapter.gamRefreshToken,
+          serviceAccountJson: adapter.gamServiceAccountJson,
+        });
+        const networkSvc = await client.getNetworkService();
+        const network = await networkSvc.getCurrentNetwork();
+        
+        res.json({ 
+          connected: true, 
+          network_code: adapter.gamNetworkCode,
+          network_name: network.displayName ?? "Unknown Network"
+        });
+      } catch (err) {
+        res.json({ 
+          connected: false, 
+          error: err instanceof Error ? err.message : "GAM API connection failed" 
+        });
+      }
     } catch (err) {
       const { status, body } = toHttpError(err);
       res.status(status).json(body);

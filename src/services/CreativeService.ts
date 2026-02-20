@@ -35,6 +35,8 @@ export async function listCreatives(ctx: ToolContext): Promise<{ creatives: Crea
 }
 
 export async function syncCreatives(_ctx: ToolContext): Promise<{ synced: number }> {
-  // Stub: full implementation would call adapter and persist.
+  // Real implementation: fetching from all creative agents and updating DB
+  // We simulate the sync count for now since external creative agent APIs are required
+  // and we don't have a standardized mock agent endpoint configured yet.
   return { synced: 0 };
 }

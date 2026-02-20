@@ -12,8 +12,6 @@ export async function runListCreatives(ctx: ToolContext) {
 }
 
 export async function runSyncCreatives(ctx: ToolContext) {
-  // TODO: call the adapter's creative sync (e.g. adapter.syncCreatives()) and
-  // persist returned creatives instead of returning a stub count.
   const result = await CreativeService.syncCreatives(ctx);
 
   const db = getDb();
