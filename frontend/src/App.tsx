@@ -19,7 +19,6 @@ import PolicyPage from "./pages/PolicyPage";
 import OperationsPage from "./pages/OperationsPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import SsoConfigPage from "./pages/SsoConfigPage";
-import GamConfigPage from "./pages/GamConfigPage";
 import GamReportingPage from "./pages/GamReportingPage";
 import LineItemViewerPage from "./pages/LineItemViewerPage";
 import InventoryBrowserPage from "./pages/InventoryBrowserPage";
@@ -52,7 +51,6 @@ export default function App() {
         <Route path="users" element={<UsersPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="sso" element={<SsoConfigPage />} />
-        <Route path="gam-config" element={<GamConfigPage />} />
         <Route path="gam/reporting" element={<GamReportingPage />} />
         <Route path="gam/line-item/:id" element={<LineItemViewerPage />} />
       </Route>
