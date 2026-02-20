@@ -62,21 +62,21 @@ export interface AdServerAdapter {
     mediaBuyId: string,
     assets: Record<string, unknown>[],
     today: Date
-  ): AssetStatus[];
+  ): AssetStatus[] | Promise<AssetStatus[]>;
   associate_creatives(
     lineItemIds: string[],
     platformCreativeIds: string[]
-  ): Record<string, unknown>[];
-  check_media_buy_status(mediaBuyId: string, today: Date): CheckMediaBuyStatusResponse;
+  ): Record<string, unknown>[] | Promise<Record<string, unknown>[]>;
+  check_media_buy_status(mediaBuyId: string, today: Date): CheckMediaBuyStatusResponse | Promise<CheckMediaBuyStatusResponse>;
   get_media_buy_delivery(
     mediaBuyId: string,
     dateRange: ReportingPeriod,
     today: Date
-  ): AdapterGetMediaBuyDeliveryResponse;
+  ): AdapterGetMediaBuyDeliveryResponse | Promise<AdapterGetMediaBuyDeliveryResponse>;
   update_media_buy_performance_index(
     mediaBuyId: string,
     packagePerformance: PackagePerformance[]
-  ): boolean;
+  ): boolean | Promise<boolean>;
   update_media_buy(
     mediaBuyId: string,
     buyerRef: string,
@@ -84,5 +84,5 @@ export interface AdServerAdapter {
     packageId: string | null,
     budget: number | null,
     today: Date
-  ): UpdateMediaBuyResponse;
+  ): UpdateMediaBuyResponse | Promise<UpdateMediaBuyResponse>;
 }

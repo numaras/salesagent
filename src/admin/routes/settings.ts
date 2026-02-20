@@ -135,11 +135,20 @@ export function createSettingsRouter(): Router {
     }
   });
 
-  // TODO: tenant schema needs slack_webhook_url / slack_audit_webhook_url columns
   router.post("/settings/slack", async (req: Request, res: Response) => {
     try {
-      await resolveTenant(req);
-      // Stub — returns success until tenants table has slack columns
+      const { ctx } = await resolveTenant(req);
+      const body = req.body as Record<string, unknown>;
+      const db = getDb();
+      await db
+        .update(tenants)
+        .set({
+          slackWebhookUrl: (body.slack_webhook_url as string) || null,
+          slackAuditWebhookUrl: (body.slack_audit_webhook_url as string) || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(tenants.tenantId, ctx.tenantId));
+
       res.json({ success: true });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -147,11 +156,23 @@ export function createSettingsRouter(): Router {
     }
   });
 
-  // TODO: tenant schema needs ai_config JSONB column
   router.post("/settings/ai", async (req: Request, res: Response) => {
     try {
-      await resolveTenant(req);
-      // Stub — returns success until tenants table has ai_config column
+      const { ctx } = await resolveTenant(req);
+      const body = req.body as Record<string, unknown>;
+      const db = getDb();
+      
+      const aiConfig = {
+        provider: body.provider,
+        model: body.model,
+        api_key: body.api_key,
+      };
+
+      await db
+        .update(tenants)
+        .set({ aiConfig, updatedAt: new Date() })
+        .where(eq(tenants.tenantId, ctx.tenantId));
+
       res.json({ success: true });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -159,15 +180,20 @@ export function createSettingsRouter(): Router {
     }
   });
 
-  // TODO: tenant schema needs authorized_domains JSONB array column
   router.post("/settings/domains/add", async (req: Request, res: Response) => {
     try {
-      await resolveTenant(req);
+      const { ctx } = await resolveTenant(req);
       const body = req.body as Record<string, unknown>;
       if (!body.domain || typeof body.domain !== "string") {
         throw new ValidationError("domain is required");
       }
-      // Stub — returns success until tenants table has authorized_domains column
+      const db = getDb();
+      const rows = await db.select({ authorizedDomains: tenants.authorizedDomains }).from(tenants).where(eq(tenants.tenantId, ctx.tenantId));
+      if (!rows[0]) throw new TenantError();
+      const current = Array.isArray(rows[0].authorizedDomains) ? rows[0].authorizedDomains : [];
+      if (!current.includes(body.domain)) {
+        await db.update(tenants).set({ authorizedDomains: [...current, body.domain], updatedAt: new Date() }).where(eq(tenants.tenantId, ctx.tenantId));
+      }
       res.json({ success: true });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -175,15 +201,18 @@ export function createSettingsRouter(): Router {
     }
   });
 
-  // TODO: tenant schema needs authorized_domains JSONB array column
   router.post("/settings/domains/remove", async (req: Request, res: Response) => {
     try {
-      await resolveTenant(req);
+      const { ctx } = await resolveTenant(req);
       const body = req.body as Record<string, unknown>;
       if (!body.domain || typeof body.domain !== "string") {
         throw new ValidationError("domain is required");
       }
-      // Stub — returns success until tenants table has authorized_domains column
+      const db = getDb();
+      const rows = await db.select({ authorizedDomains: tenants.authorizedDomains }).from(tenants).where(eq(tenants.tenantId, ctx.tenantId));
+      if (!rows[0]) throw new TenantError();
+      const current = Array.isArray(rows[0].authorizedDomains) ? rows[0].authorizedDomains : [];
+      await db.update(tenants).set({ authorizedDomains: current.filter((d) => d !== body.domain), updatedAt: new Date() }).where(eq(tenants.tenantId, ctx.tenantId));
       res.json({ success: true });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -191,15 +220,20 @@ export function createSettingsRouter(): Router {
     }
   });
 
-  // TODO: tenant schema needs authorized_emails JSONB array column
   router.post("/settings/emails/add", async (req: Request, res: Response) => {
     try {
-      await resolveTenant(req);
+      const { ctx } = await resolveTenant(req);
       const body = req.body as Record<string, unknown>;
       if (!body.email || typeof body.email !== "string") {
         throw new ValidationError("email is required");
       }
-      // Stub — returns success until tenants table has authorized_emails column
+      const db = getDb();
+      const rows = await db.select({ authorizedEmails: tenants.authorizedEmails }).from(tenants).where(eq(tenants.tenantId, ctx.tenantId));
+      if (!rows[0]) throw new TenantError();
+      const current = Array.isArray(rows[0].authorizedEmails) ? rows[0].authorizedEmails : [];
+      if (!current.includes(body.email)) {
+        await db.update(tenants).set({ authorizedEmails: [...current, body.email], updatedAt: new Date() }).where(eq(tenants.tenantId, ctx.tenantId));
+      }
       res.json({ success: true });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -207,15 +241,18 @@ export function createSettingsRouter(): Router {
     }
   });
 
-  // TODO: tenant schema needs authorized_emails JSONB array column
   router.post("/settings/emails/remove", async (req: Request, res: Response) => {
     try {
-      await resolveTenant(req);
+      const { ctx } = await resolveTenant(req);
       const body = req.body as Record<string, unknown>;
       if (!body.email || typeof body.email !== "string") {
         throw new ValidationError("email is required");
       }
-      // Stub — returns success until tenants table has authorized_emails column
+      const db = getDb();
+      const rows = await db.select({ authorizedEmails: tenants.authorizedEmails }).from(tenants).where(eq(tenants.tenantId, ctx.tenantId));
+      if (!rows[0]) throw new TenantError();
+      const current = Array.isArray(rows[0].authorizedEmails) ? rows[0].authorizedEmails : [];
+      await db.update(tenants).set({ authorizedEmails: current.filter((e) => e !== body.email), updatedAt: new Date() }).where(eq(tenants.tenantId, ctx.tenantId));
       res.json({ success: true });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -223,12 +260,127 @@ export function createSettingsRouter(): Router {
     }
   });
 
-  // TODO: tenant schema needs business_rules JSONB column
   router.post("/settings/business-rules", async (req: Request, res: Response) => {
     try {
-      await resolveTenant(req);
-      // Stub — returns success until tenants table has business-rules columns
+      const { ctx } = await resolveTenant(req);
+      const body = req.body as Record<string, unknown>;
+      const db = getDb();
+      
+      const policies = {
+        approval_mode: body.approval_mode,
+        order_name_template: body.order_name_template,
+        line_item_name_template: body.line_item_name_template,
+      };
+
+      await db
+        .update(tenants)
+        .set({ policies, updatedAt: new Date() })
+        .where(eq(tenants.tenantId, ctx.tenantId));
+
       res.json({ success: true });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  router.post("/settings/approximated/status", async (req: Request, res: Response) => {
+    try {
+      await resolveTenant(req);
+      const domain = req.body.domain;
+      if (!domain || typeof domain !== "string") throw new ValidationError("domain is required");
+
+      const apiKey = process.env.APPROXIMATED_API_KEY;
+      if (!apiKey) {
+        res.status(500).json({ error: "APPROXIMATED_API_KEY is not configured" });
+        return;
+      }
+
+      const response = await fetch(`https://approximated.app/api/v1/virtual_hosts?incoming_address=${domain}`, {
+        headers: { "api-key": apiKey },
+      });
+
+      if (!response.ok) {
+        const errData = await response.text();
+        throw new Error(`Approximated API error: ${errData}`);
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  router.post("/settings/approximated/register", async (req: Request, res: Response) => {
+    try {
+      await resolveTenant(req);
+      const domain = req.body.domain;
+      if (!domain || typeof domain !== "string") throw new ValidationError("domain is required");
+
+      const apiKey = process.env.APPROXIMATED_API_KEY;
+      if (!apiKey) {
+        res.status(500).json({ error: "APPROXIMATED_API_KEY is not configured" });
+        return;
+      }
+
+      const response = await fetch("https://approximated.app/api/v1/virtual_hosts", {
+        method: "POST",
+        headers: {
+          "api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          incoming_address: domain,
+          target_address: req.get("host"),
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.text();
+        throw new Error(`Approximated API error: ${errData}`);
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  router.post("/settings/approximated/token", async (req: Request, res: Response) => {
+    try {
+      await resolveTenant(req);
+      const domain = req.body.domain;
+      if (!domain || typeof domain !== "string") throw new ValidationError("domain is required");
+
+      const apiKey = process.env.APPROXIMATED_API_KEY;
+      if (!apiKey) {
+        res.status(500).json({ error: "APPROXIMATED_API_KEY is not configured" });
+        return;
+      }
+
+      const response = await fetch("https://approximated.app/api/v1/user_auth_tokens", {
+        method: "POST",
+        headers: {
+          "api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "vhosts",
+          target: domain,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.text();
+        throw new Error(`Approximated API error: ${errData}`);
+      }
+
+      const data = await response.json();
+      res.json(data);
     } catch (err) {
       const { status, body } = toHttpError(err);
       res.status(status).json(body);

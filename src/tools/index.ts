@@ -10,6 +10,7 @@ export {
 } from "./mediaBuy.js";
 export { runListCreatives, runSyncCreatives } from "./creatives.js";
 export { runListTasks, runGetTask, runCompleteTask } from "./tasks.js";
+export { runGetSignals, runActivateSignal } from "./signals.js";
 export type {
   GetProductsRequest,
   ListAuthorizedPropertiesRequest,

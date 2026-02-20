@@ -35,6 +35,12 @@ export const tenants = pgTable(
     adminToken: varchar("admin_token", { length: 100 }),
     brandManifestPolicy: varchar("brand_manifest_policy", { length: 50 }).default("require_auth"),
     authSetupMode: boolean("auth_setup_mode").default(true),
+    authorizedEmails: jsonb("authorized_emails"),
+    authorizedDomains: jsonb("authorized_domains"),
+    slackWebhookUrl: varchar("slack_webhook_url", { length: 500 }),
+    slackAuditWebhookUrl: varchar("slack_audit_webhook_url", { length: 500 }),
+    aiConfig: jsonb("ai_config"),
+    policies: jsonb("policies"),
   },
   (t) => ({
     subdomainIdx: index("idx_subdomain").on(t.subdomain),

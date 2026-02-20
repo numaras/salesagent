@@ -9,6 +9,17 @@ interface DashboardData {
   active_users: number;
 }
 
+interface ActivityEvent {
+  logId: number;
+  timestamp: string;
+  operation: string;
+  principalName: string | null;
+  principalId: string | null;
+  success: boolean;
+  errorMessage: string | null;
+  details: Record<string, unknown> | null;
+}
+
 const fallback: DashboardData = {
   products: 0,
   principals: 0,
@@ -20,6 +31,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData>(fallback);
   const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<ActivityEvent[]>([]);
 
   useEffect(() => {
     apiFetch<{ setupComplete: boolean }>("/onboarding/status")
@@ -36,6 +48,27 @@ export default function DashboardPage() {
       .then(setData)
       .catch(() => setData(fallback))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const sse = new EventSource("/admin/api/activity/stream");
+    sse.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "activity" && msg.data) {
+          setEvents((prev) => {
+            const next = [msg.data, ...prev];
+            // keep the latest 50 events
+            return next.length > 50 ? next.slice(0, 50) : next;
+          });
+        }
+      } catch (err) {
+        console.error("SSE parse error", err);
+      }
+    };
+    return () => {
+      sse.close();
+    };
   }, []);
 
   const cards: { label: string; value: number; color: string }[] = [
@@ -73,13 +106,40 @@ export default function DashboardPage() {
 
       {/* Recent activity */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Recent Activity</h3>
-        <div className="flex flex-col items-center py-12 text-gray-400">
-          <svg className="mb-3 h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-          <p className="text-sm">No recent activity</p>
-        </div>
+        <h3 className="mb-4 text-lg font-semibold text-gray-900">Live Activity Feed</h3>
+        {events.length === 0 ? (
+          <div className="flex flex-col items-center py-12 text-gray-400">
+            <svg className="mb-3 h-10 w-10 animate-pulse text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            <p className="text-sm">Listening for activity...</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {events.map((evt, idx) => (
+              <li key={evt.logId || idx} className="py-4">
+                <div className="flex space-x-3">
+                  <div className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${evt.success ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
+                    <span className="text-xs font-bold">{evt.operation.slice(0, 2).toUpperCase()}</span>
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium text-gray-900">{evt.operation}</h3>
+                      <p className="text-xs text-gray-500">{new Date(evt.timestamp).toLocaleTimeString()}</p>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {evt.principalName ? <span className="font-semibold">{evt.principalName}</span> : "System"}{" "}
+                      executed action.
+                    </p>
+                    {evt.errorMessage && (
+                      <p className="text-xs text-red-600 mt-1">{evt.errorMessage}</p>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

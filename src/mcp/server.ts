@@ -118,6 +118,16 @@ export function createMcpServer(): {
     inputSchema: z.object({ task_id: z.string(), result: z.unknown().optional() }),
   }, createToolHandler(async (ctx, args) => tools.runCompleteTask(ctx, args!.task_id, args?.result)));
 
+  mcpServer.registerTool("get_signals", {
+    description: "Get available signals from integrated agents.",
+    inputSchema: z.object({ brief: z.string().optional() }).optional(),
+  }, createToolHandler(async (ctx, args) => tools.runGetSignals(ctx, args ?? {})));
+
+  mcpServer.registerTool("activate_signal", {
+    description: "Activate a signal.",
+    inputSchema: z.object({ signal_id: z.string() }),
+  }, createToolHandler(async (ctx, args) => tools.runActivateSignal(ctx, args!)));
+
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   mcpServer.connect(transport);
 

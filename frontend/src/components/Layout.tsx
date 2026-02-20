@@ -11,6 +11,7 @@ const navItems = [
   { to: "/creatives", label: "Creatives", icon: CreativesIcon },
   { to: "/properties", label: "Properties", icon: PropertiesIcon },
   { to: "/creative-agents", label: "Creative Agents", icon: CreativeAgentsIcon },
+  { to: "/signals-agents", label: "Signals Agents", icon: CreativeAgentsIcon },
   { to: "/inventory", label: "Inventory", icon: InventoryIcon },
   { to: "/inventory/browser", label: "Inventory Browser", icon: InventoryIcon },
   { to: "/inventory/targeting", label: "Targeting Keys", icon: InventoryIcon },

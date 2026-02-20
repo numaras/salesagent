@@ -161,6 +161,14 @@ const TOOL_DISPATCH = new Map<string, ToolDispatchFn>([
     "complete_task",
     async (ctx, p) => tools.runCompleteTask(ctx, p.task_id as string, p.result),
   ],
+  [
+    "get_signals",
+    async (ctx, p) => tools.runGetSignals(ctx, { brief: p.brief as string | undefined }),
+  ],
+  [
+    "activate_signal",
+    async (ctx, p) => tools.runActivateSignal(ctx, { signal_id: p.signal_id as string }),
+  ],
 ]);
 
 const SKILL_DESCRIPTORS: SkillDescriptor[] = [
@@ -177,6 +185,8 @@ const SKILL_DESCRIPTORS: SkillDescriptor[] = [
   { id: "list_tasks", name: "List Tasks", description: "List human-in-the-loop tasks, optionally filtered by status." },
   { id: "get_task", name: "Get Task", description: "Retrieve a single task by ID." },
   { id: "complete_task", name: "Complete Task", description: "Complete a human-in-the-loop task with a result." },
+  { id: "get_signals", name: "Get Signals", description: "Get available signals from integrated agents." },
+  { id: "activate_signal", name: "Activate Signal", description: "Activate a signal." },
 ];
 
 /* ------------------------------------------------------------------ */

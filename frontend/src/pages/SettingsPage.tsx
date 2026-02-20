@@ -3,7 +3,7 @@ import { apiFetch } from "../lib/api";
 import FormField, { Input } from "../components/FormField";
 import FormSelect from "../components/FormSelect";
 
-type Tab = "general" | "adapter" | "slack" | "ai" | "access" | "business-rules";
+type Tab = "general" | "custom-domain" | "adapter" | "slack" | "ai" | "access" | "business-rules";
 
 interface SettingsPayload {
   general: {
@@ -29,6 +29,7 @@ interface SettingsPayload {
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "general", label: "General" },
+  { id: "custom-domain", label: "Custom Domain" },
   { id: "adapter", label: "Adapter" },
   { id: "slack", label: "Slack" },
   { id: "ai", label: "AI" },
@@ -83,6 +84,7 @@ export default function SettingsPage() {
       ) : (
         <>
           {tab === "general" && <GeneralTab data={data} onSaved={load} />}
+          {tab === "custom-domain" && <CustomDomainTab data={data} onSaved={load} />}
           {tab === "adapter" && <AdapterTab data={data} onSaved={load} />}
           {tab === "slack" && <SlackTab data={data} onSaved={load} />}
           {tab === "ai" && <AITab data={data} onSaved={load} />}
@@ -131,6 +133,124 @@ function GeneralTab({ data, onSaved }: { data: SettingsPayload; onSaved: () => v
       </FormField>
       <SaveButton saving={saving} />
     </form>
+  );
+}
+
+/* ───── Custom Domain ───── */
+
+function CustomDomainTab({ data, onSaved }: { data: SettingsPayload; onSaved: () => void }) {
+  const [domain, setDomain] = useState(data.general.virtual_host || "");
+  const [status, setStatus] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function checkStatus() {
+    if (!domain) return;
+    setLoading(true);
+    setStatus(null);
+    try {
+      const res = await apiFetch<any>("/settings/approximated/status", {
+        method: "POST",
+        body: JSON.stringify({ domain }),
+      });
+      // Try to parse the response format
+      if (res && res.data && res.data.length > 0) {
+        setStatus(`Status: ${res.data[0].status || JSON.stringify(res.data[0])}`);
+      } else if (res && res.error) {
+        setStatus(`Error: ${res.error}`);
+      } else {
+        setStatus(JSON.stringify(res));
+      }
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Error checking status");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function provisionDomain() {
+    if (!domain) return;
+    setLoading(true);
+    setStatus(null);
+    try {
+      const res = await apiFetch<any>("/settings/approximated/register", {
+        method: "POST",
+        body: JSON.stringify({ domain }),
+      });
+      if (res && res.error) {
+        setStatus(`Error: ${res.error}`);
+      } else {
+        setStatus("Provisioned successfully! Please check status to verify.");
+      }
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Error provisioning domain");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveVirtualHost(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await apiFetch("/settings/general", {
+        method: "POST",
+        body: JSON.stringify({ name: data.general.name, virtual_host: domain }),
+      });
+      setStatus("Virtual host updated in settings.");
+      onSaved();
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="max-w-lg space-y-6">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">Custom Domain Provisioning</h3>
+        <p className="text-sm text-gray-500">
+          Setup your custom domain using Approximated.app. Enter the desired domain below.
+        </p>
+        <form onSubmit={saveVirtualHost} className="space-y-4">
+          <FormField label="Domain Name">
+            <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="e.g. sales.example.com" />
+          </FormField>
+          
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={provisionDomain}
+              disabled={loading || !domain}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            >
+              Provision Domain
+            </button>
+            <button
+              type="button"
+              onClick={checkStatus}
+              disabled={loading || !domain}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
+            >
+              Check Status
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !domain}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
+            >
+              Save as Virtual Host
+            </button>
+          </div>
+        </form>
+
+        {status && (
+          <div className="mt-4 rounded-md bg-gray-50 p-3 text-sm text-gray-700 font-mono break-all">
+            {status}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
