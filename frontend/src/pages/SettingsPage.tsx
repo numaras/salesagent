@@ -258,9 +258,34 @@ function CustomDomainTab({ data, onSaved }: { data: SettingsPayload; onSaved: ()
 
 function AdapterTab({ data, onSaved }: { data: SettingsPayload; onSaved: () => void }) {
   const adapter = data.adapter;
+  const cfg = (adapter?.config_json ?? {}) as Record<string, string>;
   const [adapterType, setAdapterType] = useState(adapter?.adapter_type ?? "mock");
-  const [dryRun, setDryRun] = useState(adapter?.mock_dry_run ?? false);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  // Mock
+  const [dryRun, setDryRun] = useState(adapter?.mock_dry_run ?? false);
+
+  // GAM
+  const [gamAuthMethod, setGamAuthMethod] = useState<string>(cfg.auth_method ?? "service_account");
+  const [gamNetworkCode, setGamNetworkCode] = useState(adapter?.gam_network_code ?? "");
+  const [gamTraffickerId, setGamTraffickerId] = useState(cfg.gam_trafficker_id ?? "");
+  const [gamCurrency, setGamCurrency] = useState(cfg.gam_network_currency ?? "USD");
+  const [gamRefreshToken, setGamRefreshToken] = useState("");
+  const [gamServiceAccountJson, setGamServiceAccountJson] = useState("");
+
+  // Kevel
+  const [kevelNetworkId, setKevelNetworkId] = useState(cfg.kevelNetworkId ?? "");
+  const [kevelApiKey, setKevelApiKey] = useState(cfg.kevelApiKey ?? "");
+
+  // Triton
+  const [tritonStationId, setTritonStationId] = useState(cfg.tritonStationId ?? "");
+  const [tritonApiKey, setTritonApiKey] = useState(cfg.tritonApiKey ?? "");
+
+  // Broadstreet
+  const [broadstreetNetworkId, setBroadstreetNetworkId] = useState(cfg.broadstreetNetworkId ?? "");
+  const [broadstreetApiKey, setBroadstreetApiKey] = useState(cfg.broadstreetApiKey ?? "");
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -268,7 +293,27 @@ function AdapterTab({ data, onSaved }: { data: SettingsPayload; onSaved: () => v
     try {
       await apiFetch("/settings/adapter", {
         method: "POST",
-        body: JSON.stringify({ adapter_type: adapterType, mock_dry_run: dryRun }),
+        body: JSON.stringify({
+          adapter_type: adapterType,
+          mock_dry_run: dryRun,
+          gam_auth_method: gamAuthMethod,
+          gam_network_code: gamNetworkCode || undefined,
+          gam_trafficker_id: gamTraffickerId || undefined,
+          gam_refresh_token: gamRefreshToken || undefined,
+          gam_service_account_json: gamServiceAccountJson || undefined,
+          gam_network_currency: gamCurrency || undefined,
+          config_json: {
+            auth_method: gamAuthMethod,
+            gam_trafficker_id: gamTraffickerId,
+            gam_network_currency: gamCurrency,
+            kevelNetworkId,
+            kevelApiKey,
+            tritonStationId,
+            tritonApiKey,
+            broadstreetNetworkId,
+            broadstreetApiKey,
+          },
+        }),
       });
       onSaved();
     } catch (err) {
@@ -278,10 +323,24 @@ function AdapterTab({ data, onSaved }: { data: SettingsPayload; onSaved: () => v
     }
   }
 
+  async function handleTestConnection() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await apiFetch<{ connected: boolean; network_name?: string; error?: string }>("/gam/test-connection", { method: "POST" });
+      setTestResult(res.connected ? `Connected: ${res.network_name ?? "OK"}` : `Failed: ${res.error ?? "Unknown error"}`);
+    } catch (err) {
+      setTestResult(err instanceof Error ? err.message : "Test failed");
+    } finally {
+      setTesting(false);
+    }
+  }
+
   return (
-    <form onSubmit={save} className="max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">Ad Server Adapter</h3>
-      <FormField label="Adapter Type">
+    <form onSubmit={save} className="max-w-2xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
+      <h3 className="text-lg font-semibold text-gray-900">Ad Server Configuration</h3>
+
+      <FormField label="Ad Server">
         <FormSelect
           value={adapterType}
           onChange={(e) => setAdapterType(e.target.value)}
@@ -295,31 +354,99 @@ function AdapterTab({ data, onSaved }: { data: SettingsPayload; onSaved: () => v
         />
       </FormField>
 
-      {adapterType === "google_ad_manager" && (
-        <a href="/gam-config" className="inline-block text-sm text-indigo-600 hover:text-indigo-800 font-medium">
-          Configure GAM &rarr;
-        </a>
-      )}
-
+      {/* ── Mock ── */}
       {adapterType === "mock" && (
-        <label className="flex items-center gap-2 text-sm text-gray-700 mt-4">
-          <input
-            type="checkbox"
-            checked={dryRun}
-            onChange={(e) => setDryRun(e.target.checked)}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          Enable Dry Run (simulate responses without writing)
-        </label>
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <p className="text-sm font-medium text-gray-700">Mock Settings</p>
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            Dry run mode (simulate without writing)
+          </label>
+        </div>
       )}
 
-      {["kevel", "triton_digital", "broadstreet"].includes(adapterType) && (
-        <div className="mt-4 rounded-md bg-yellow-50 p-4 text-sm text-yellow-800 border border-yellow-200">
-          <p className="font-semibold mb-1">Configuration Required</p>
-          <p>
-            The <strong>{adapterType}</strong> adapter requires an API Key and Network/Station ID. 
-            Currently, these must be configured directly in the database <code>adapter_config</code> table. A dedicated UI configuration page for this adapter will be available in a future update.
-          </p>
+      {/* ── Google Ad Manager ── */}
+      {adapterType === "google_ad_manager" && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+          <p className="text-sm font-medium text-gray-700">Google Ad Manager Settings</p>
+          <FormField label="Auth Method">
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="gamAuth" value="service_account" checked={gamAuthMethod === "service_account"} onChange={() => setGamAuthMethod("service_account")} />
+                Service Account
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="gamAuth" value="oauth" checked={gamAuthMethod === "oauth"} onChange={() => setGamAuthMethod("oauth")} />
+                OAuth Refresh Token
+              </label>
+            </div>
+          </FormField>
+          <FormField label="Network Code">
+            <Input value={gamNetworkCode} onChange={(e) => setGamNetworkCode(e.target.value)} placeholder="e.g. 12345678" />
+          </FormField>
+          <FormField label="Trafficker ID">
+            <Input value={gamTraffickerId} onChange={(e) => setGamTraffickerId(e.target.value)} placeholder="e.g. 987654" />
+          </FormField>
+          <FormField label="Network Currency">
+            <Input value={gamCurrency} onChange={(e) => setGamCurrency(e.target.value)} placeholder="USD" />
+          </FormField>
+          {gamAuthMethod === "service_account" && (
+            <FormField label="Service Account JSON">
+              <textarea value={gamServiceAccountJson} onChange={(e) => setGamServiceAccountJson(e.target.value)} placeholder='Paste your service account JSON...' rows={4} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+            </FormField>
+          )}
+          {gamAuthMethod === "oauth" && (
+            <FormField label="Refresh Token">
+              <Input type="password" value={gamRefreshToken} onChange={(e) => setGamRefreshToken(e.target.value)} placeholder="Paste your refresh token..." />
+            </FormField>
+          )}
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={handleTestConnection} disabled={testing} className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+              {testing ? "Testing..." : "Test Connection"}
+            </button>
+            {testResult && (
+              <span className={`text-sm ${testResult.startsWith("Connected") ? "text-green-700" : "text-red-700"}`}>{testResult}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Kevel ── */}
+      {adapterType === "kevel" && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+          <p className="text-sm font-medium text-gray-700">Kevel Settings</p>
+          <FormField label="Network ID">
+            <Input value={kevelNetworkId} onChange={(e) => setKevelNetworkId(e.target.value)} placeholder="Your Kevel Network ID" />
+          </FormField>
+          <FormField label="API Key">
+            <Input type="password" value={kevelApiKey} onChange={(e) => setKevelApiKey(e.target.value)} placeholder="Your Kevel API Key" />
+          </FormField>
+        </div>
+      )}
+
+      {/* ── Triton Digital ── */}
+      {adapterType === "triton_digital" && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+          <p className="text-sm font-medium text-gray-700">Triton Digital Settings</p>
+          <FormField label="Station ID">
+            <Input value={tritonStationId} onChange={(e) => setTritonStationId(e.target.value)} placeholder="Your Triton Station ID" />
+          </FormField>
+          <FormField label="API Key">
+            <Input type="password" value={tritonApiKey} onChange={(e) => setTritonApiKey(e.target.value)} placeholder="Your Triton API Key" />
+          </FormField>
+        </div>
+      )}
+
+      {/* ── Broadstreet ── */}
+      {adapterType === "broadstreet" && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+          <p className="text-sm font-medium text-gray-700">Broadstreet Settings</p>
+          <FormField label="Network ID">
+            <Input value={broadstreetNetworkId} onChange={(e) => setBroadstreetNetworkId(e.target.value)} placeholder="Your Broadstreet Network ID" />
+          </FormField>
+          <FormField label="API Key">
+            <Input type="password" value={broadstreetApiKey} onChange={(e) => setBroadstreetApiKey(e.target.value)} placeholder="Your Broadstreet API Key" />
+          </FormField>
         </div>
       )}
 
