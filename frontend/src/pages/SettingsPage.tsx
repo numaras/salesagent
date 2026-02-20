@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { apiFetch } from "../lib/api";
-import FormField, { Input } from "../components/FormField";
+import FormField, { Input, Textarea } from "../components/FormField";
 import FormSelect from "../components/FormSelect";
 
 type Tab = "general" | "custom-domain" | "adapter" | "slack" | "ai" | "access" | "business-rules";
@@ -24,7 +24,15 @@ interface SettingsPayload {
   slack: { slack_webhook_url: string; slack_audit_webhook_url: string };
   ai: { provider: string; model: string; api_key: string };
   access: { authorized_domains: string[]; authorized_emails: string[] };
-  business_rules: { approval_mode: string; order_name_template: string; line_item_name_template: string };
+  business_rules: { 
+    approval_mode: string; 
+    order_name_template: string; 
+    line_item_name_template: string;
+    creative_review_criteria?: string;
+    sensitive_categories?: string;
+    creative_auto_approve_threshold?: number;
+    creative_auto_reject_threshold?: number;
+  };
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -725,6 +733,10 @@ function BusinessRulesTab({ data, onSaved }: { data: SettingsPayload; onSaved: (
   const [approvalMode, setApprovalMode] = useState(data.business_rules.approval_mode || "manual");
   const [orderTemplate, setOrderTemplate] = useState(data.business_rules.order_name_template);
   const [lineItemTemplate, setLineItemTemplate] = useState(data.business_rules.line_item_name_template);
+  const [creativeReviewCriteria, setCreativeReviewCriteria] = useState(data.business_rules.creative_review_criteria ?? "");
+  const [sensitiveCategories, setSensitiveCategories] = useState(data.business_rules.sensitive_categories ?? "");
+  const [approveThreshold, setApproveThreshold] = useState(data.business_rules.creative_auto_approve_threshold?.toString() ?? "0.9");
+  const [rejectThreshold, setRejectThreshold] = useState(data.business_rules.creative_auto_reject_threshold?.toString() ?? "0.1");
   const [saving, setSaving] = useState(false);
 
   async function save(e: FormEvent) {
@@ -737,6 +749,10 @@ function BusinessRulesTab({ data, onSaved }: { data: SettingsPayload; onSaved: (
           approval_mode: approvalMode,
           order_name_template: orderTemplate,
           line_item_name_template: lineItemTemplate,
+          creative_review_criteria: creativeReviewCriteria,
+          sensitive_categories: sensitiveCategories,
+          creative_auto_approve_threshold: parseFloat(approveThreshold),
+          creative_auto_reject_threshold: parseFloat(rejectThreshold),
         }),
       });
       onSaved();
@@ -748,26 +764,77 @@ function BusinessRulesTab({ data, onSaved }: { data: SettingsPayload; onSaved: (
   }
 
   return (
-    <form onSubmit={save} className="max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">Business Rules</h3>
-      <FormField label="Approval Mode">
-        <FormSelect
-          value={approvalMode}
-          onChange={(e) => setApprovalMode(e.target.value)}
-          options={[
-            { value: "auto-approve", label: "Auto-Approve" },
-            { value: "manual", label: "Manual" },
-            { value: "ai-review", label: "AI Review" },
-          ]}
-        />
-      </FormField>
-      <FormField label="Order Name Template">
-        <Input value={orderTemplate} onChange={(e) => setOrderTemplate(e.target.value)} placeholder="e.g. {{advertiser}}_{{date}}" />
-      </FormField>
-      <FormField label="Line Item Name Template">
-        <Input value={lineItemTemplate} onChange={(e) => setLineItemTemplate(e.target.value)} placeholder="e.g. {{product}}_{{format}}" />
-      </FormField>
-      <SaveButton saving={saving} />
+    <form onSubmit={save} className="max-w-2xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">General Rules</h3>
+        <div className="space-y-4">
+          <FormField label="Approval Mode">
+            <FormSelect
+              value={approvalMode}
+              onChange={(e) => setApprovalMode(e.target.value)}
+              options={[
+                { value: "auto-approve", label: "Auto-Approve" },
+                { value: "manual", label: "Manual" },
+                { value: "ai-review", label: "AI Review" },
+              ]}
+            />
+          </FormField>
+          <FormField label="Order Name Template">
+            <Input value={orderTemplate} onChange={(e) => setOrderTemplate(e.target.value)} placeholder="e.g. {{advertiser}}_{{date}}" />
+          </FormField>
+          <FormField label="Line Item Name Template">
+            <Input value={lineItemTemplate} onChange={(e) => setLineItemTemplate(e.target.value)} placeholder="e.g. {{product}}_{{format}}" />
+          </FormField>
+        </div>
+      </div>
+
+      <div className="border-t pt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Creative Review Settings</h3>
+        <div className="space-y-4">
+          <FormField label="Review Criteria">
+            <Textarea 
+              value={creativeReviewCriteria} 
+              onChange={(e) => setCreativeReviewCriteria(e.target.value)} 
+              placeholder="e.g. Ad must not contain deceptive claims..." 
+              rows={3} 
+            />
+          </FormField>
+          <FormField label="Sensitive Categories">
+            <Textarea 
+              value={sensitiveCategories} 
+              onChange={(e) => setSensitiveCategories(e.target.value)} 
+              placeholder="e.g. gambling, tobacco, adult content" 
+              rows={2} 
+            />
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Auto-Approve Threshold">
+              <Input 
+                type="number" 
+                step="0.01" 
+                min="0" 
+                max="1" 
+                value={approveThreshold} 
+                onChange={(e) => setApproveThreshold(e.target.value)} 
+              />
+            </FormField>
+            <FormField label="Auto-Reject Threshold">
+              <Input 
+                type="number" 
+                step="0.01" 
+                min="0" 
+                max="1" 
+                value={rejectThreshold} 
+                onChange={(e) => setRejectThreshold(e.target.value)} 
+              />
+            </FormField>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-2">
+        <SaveButton saving={saving} />
+      </div>
     </form>
   );
 }

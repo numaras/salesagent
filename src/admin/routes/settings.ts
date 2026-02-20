@@ -61,7 +61,11 @@ export function createSettingsRouter(): Router {
         business_rules: { 
           approval_mode: (tenant.policies as Record<string, string>)?.approval_mode ?? "manual", 
           order_name_template: (tenant.policies as Record<string, string>)?.order_name_template ?? "", 
-          line_item_name_template: (tenant.policies as Record<string, string>)?.line_item_name_template ?? "" 
+          line_item_name_template: (tenant.policies as Record<string, string>)?.line_item_name_template ?? "",
+          creative_review_criteria: (tenant.policies as Record<string, string>)?.creative_review_criteria ?? "",
+          sensitive_categories: (tenant.policies as Record<string, string>)?.sensitive_categories ?? "",
+          creative_auto_approve_threshold: Number((tenant.policies as Record<string, unknown>)?.creative_auto_approve_threshold ?? 0.9),
+          creative_auto_reject_threshold: Number((tenant.policies as Record<string, unknown>)?.creative_auto_reject_threshold ?? 0.1),
         },
       });
     } catch (err) {
@@ -327,6 +331,10 @@ export function createSettingsRouter(): Router {
         approval_mode: body.approval_mode,
         order_name_template: body.order_name_template,
         line_item_name_template: body.line_item_name_template,
+        creative_review_criteria: body.creative_review_criteria,
+        sensitive_categories: body.sensitive_categories,
+        creative_auto_approve_threshold: body.creative_auto_approve_threshold,
+        creative_auto_reject_threshold: body.creative_auto_reject_threshold,
       };
 
       await db
