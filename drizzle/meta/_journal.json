@@ -15,6 +15,13 @@
       "when": 1771511439795,
       "tag": "0001_mighty_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771613221465,
+      "tag": "0002_burly_marauders",
+      "breakpoints": true
     }
   ]
 }
