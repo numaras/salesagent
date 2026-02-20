@@ -22,6 +22,7 @@ import { createOperationsRouter } from "./routes/operations.js";
 import { createOnboardingRouter } from "./routes/onboarding.js";
 import { createOidcRouter } from "./routes/oidc.js";
 import { createGamRouter } from "./routes/gam.js";
+import { createInventoryProfilesRouter } from "./routes/inventoryProfiles.js";
 
 export function createAdminRouter(): Router {
   const router = Router();
@@ -48,6 +49,7 @@ export function createAdminRouter(): Router {
   router.use("/api", createOnboardingRouter());
   router.use("/api", createOidcRouter());
   router.use("/api", createGamRouter());
+  router.use("/api", createInventoryProfilesRouter());
 
   return router;
 }

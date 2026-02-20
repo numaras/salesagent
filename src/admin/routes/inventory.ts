@@ -46,8 +46,48 @@ export function createInventoryRouter(): Router {
       const result = await resolveFromHeaders(headers);
       const ctx = toToolContext(result);
       if (!ctx?.tenantId) throw new TenantError();
+      const db = getDb();
 
-      res.json({ tree: [], message: "Inventory tree not yet implemented" });
+      const rows = await db
+        .select()
+        .from(gamInventory)
+        .where(eq(gamInventory.tenantId, ctx.tenantId));
+
+      const grouped = rows.reduce((acc, row) => {
+        const type = row.inventoryType || "unknown";
+        if (!acc[type]) {
+          acc[type] = { id: `type-${type}`, name: type, children: [] };
+        }
+        acc[type].children.push({
+          id: row.id.toString(),
+          inventory_id: row.inventoryId,
+          name: row.name,
+          path: row.path,
+          status: row.status,
+          inventory_metadata: row.inventoryMetadata,
+        });
+        return acc;
+      }, {} as Record<string, any>);
+
+      res.json({ tree: Object.values(grouped) });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  router.get("/inventory/targeting-keys", async (req: Request, res: Response) => {
+    try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
+
+      res.json({
+        keys: [
+          { id: "1", name: "axe_segment", type: "custom" }
+        ]
+      });
     } catch (err) {
       const { status, body } = toHttpError(err);
       res.status(status).json(body);

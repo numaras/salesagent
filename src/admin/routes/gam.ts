@@ -6,6 +6,7 @@ import { headersFromNodeRequest } from "../../core/httpHeaders.js";
 import { getDb } from "../../db/client.js";
 import { getAdapterConfigByTenant } from "../../db/repositories/adapter-config.js";
 import { adapterConfig, currencyLimits } from "../../db/schema.js";
+import { getFormatMetrics } from "../../services/FormatMetricsService.js";
 
 export function createGamRouter(): Router {
   const router = Router();
@@ -134,6 +135,42 @@ export function createGamRouter(): Router {
         auth_method: configJson.auth_method ?? null,
         has_refresh_token: !!adapter.gamRefreshToken,
         has_service_account: !!adapter.gamServiceAccountJson,
+      });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  router.get("/gam/reporting", async (req: Request, res: Response) => {
+    try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
+
+      const metrics = await getFormatMetrics(ctx.tenantId);
+      res.json({ metrics });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  router.get("/gam/line-item/:id", async (req: Request, res: Response) => {
+    try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
+
+      // TODO: Use the real GAM client
+      res.json({
+        id: req.params.id,
+        name: "Mock Line Item",
+        status: "DELIVERING",
+        orderId: "123",
+        stats: { impressions: 1000 }
       });
     } catch (err) {
       const { status, body } = toHttpError(err);

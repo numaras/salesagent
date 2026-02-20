@@ -7,6 +7,15 @@ import {
   AdManagerClient,
   type LineItemService,
   type OrderService,
+  type InventoryService,
+  type PlacementService,
+  type CustomTargetingService,
+  type CreativeService,
+  type ReportService,
+  type LineItemCreativeAssociationService,
+  type NetworkService,
+  type UserService,
+  type LabelService,
 } from "@guardian/google-admanager-api";
 import { buildGamCredential } from "./auth.js";
 import type { GamConfig } from "./types.js";
@@ -17,6 +26,15 @@ const APPLICATION_NAME = "Prebid Sales Agent";
 export interface GamClientWrapper {
   getOrderService(): Promise<OrderService>;
   getLineItemService(): Promise<LineItemService>;
+  getInventoryService(): Promise<InventoryService>;
+  getPlacementService(): Promise<PlacementService>;
+  getCustomTargetingService(): Promise<CustomTargetingService>;
+  getCreativeService(): Promise<CreativeService>;
+  getReportService(): Promise<ReportService>;
+  getLineItemCreativeAssociationService(): Promise<LineItemCreativeAssociationService>;
+  getNetworkService(): Promise<NetworkService>;
+  getUserService(): Promise<UserService>;
+  getLabelService(): Promise<LabelService>;
 }
 
 /** Create a real GAM client wrapper from config. */
@@ -34,6 +52,33 @@ export function createGamClient(config: GamConfig): GamClientWrapper {
     },
     async getLineItemService(): Promise<LineItemService> {
       return client.getService("LineItemService");
+    },
+    async getInventoryService(): Promise<InventoryService> {
+      return client.getService("InventoryService");
+    },
+    async getPlacementService(): Promise<PlacementService> {
+      return client.getService("PlacementService");
+    },
+    async getCustomTargetingService(): Promise<CustomTargetingService> {
+      return client.getService("CustomTargetingService");
+    },
+    async getCreativeService(): Promise<CreativeService> {
+      return client.getService("CreativeService");
+    },
+    async getReportService(): Promise<ReportService> {
+      return client.getService("ReportService");
+    },
+    async getLineItemCreativeAssociationService(): Promise<LineItemCreativeAssociationService> {
+      return client.getService("LineItemCreativeAssociationService");
+    },
+    async getNetworkService(): Promise<NetworkService> {
+      return client.getService("NetworkService");
+    },
+    async getUserService(): Promise<UserService> {
+      return client.getService("UserService");
+    },
+    async getLabelService(): Promise<LabelService> {
+      return client.getService("LabelService");
     },
   };
 }

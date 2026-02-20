@@ -6,6 +6,7 @@ import { headersFromNodeRequest } from "../../core/httpHeaders.js";
 import { getDb } from "../../db/client.js";
 import { listPropertiesByTenant } from "../../db/repositories/authorized-property.js";
 import { authorizedProperties } from "../../db/schema.js";
+import { verifyProperty } from "../../services/PropertyVerificationService.js";
 
 function paramStr(v: string | string[] | undefined): string | undefined {
   return typeof v === "string" ? v : v?.[0];
@@ -68,6 +69,23 @@ export function createPropertiesRouter(): Router {
 
       const row = inserted[0]!;
       res.status(201).json({ property_id: row.propertyId, name: row.name });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  router.post("/properties/:id/verify", async (req: Request, res: Response) => {
+    try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
+      const id = paramStr(req.params.id);
+      if (!id) throw new NotFoundError("Property", "undefined");
+
+      await verifyProperty(id, ctx.tenantId);
+      res.json({ success: true });
     } catch (err) {
       const { status, body } = toHttpError(err);
       res.status(status).json(body);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 
 interface Creative {
@@ -6,6 +7,8 @@ interface Creative {
   name: string;
   format: string;
   status: string;
+  confidence_score?: number;
+  policy_triggered?: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -34,6 +37,13 @@ export default function CreativesPage() {
       .catch(() => {});
   }
 
+  function renderConfidence(score?: number) {
+    if (score === undefined || score === null) return <span className="text-gray-400">N/A</span>;
+    if (score >= 0.8) return <span className="text-green-600 font-medium">High ({(score * 100).toFixed(0)}%)</span>;
+    if (score >= 0.5) return <span className="text-yellow-600 font-medium">Med ({(score * 100).toFixed(0)}%)</span>;
+    return <span className="text-red-600 font-medium">Low ({(score * 100).toFixed(0)}%)</span>;
+  }
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -48,15 +58,17 @@ export default function CreativesPage() {
               <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase">Name</th>
               <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase">Format</th>
               <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase">AI Score</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase">Policies</th>
               <th className="px-6 py-3 text-right text-xs font-semibold tracking-wider text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {loading ? (
-              <SkeletonRows cols={5} />
+              <SkeletonRows cols={7} />
             ) : creatives.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">
                   No creatives found
                 </td>
               </tr>
@@ -64,7 +76,11 @@ export default function CreativesPage() {
               creatives.map((c) => (
                 <tr key={c.creative_id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm font-mono text-gray-900">{c.creative_id}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{c.name}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    <Link to={`/creatives/${c.creative_id}`} className="text-indigo-600 hover:text-indigo-900">
+                      {c.name}
+                    </Link>
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
                       {c.format}
@@ -75,7 +91,25 @@ export default function CreativesPage() {
                       {c.status}
                     </span>
                   </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {renderConfidence(c.confidence_score)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {c.policy_triggered ? (
+                      <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+                        {c.policy_triggered}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">None</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-right text-sm space-x-2">
+                    <Link
+                      to={`/creatives/${c.creative_id}`}
+                      className="rounded bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 mr-2"
+                    >
+                      Review
+                    </Link>
                     {c.status === "pending" && (
                       <>
                         <button

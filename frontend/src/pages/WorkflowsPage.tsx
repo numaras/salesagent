@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 
 interface WorkflowStep {
@@ -18,6 +19,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function WorkflowsPage() {
+  const navigate = useNavigate();
   const [workflows, setWorkflows] = useState<WorkflowStep[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -66,7 +68,11 @@ export default function WorkflowsPage() {
               </tr>
             ) : (
               workflows.map((w) => (
-                <tr key={w.step_id} className="hover:bg-gray-50 transition-colors">
+                <tr 
+                  key={w.step_id} 
+                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/workflows/${w.step_id}`)}
+                >
                   <td className="px-6 py-4 text-sm font-mono text-gray-900">{w.step_id}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{w.step_type}</td>
                   <td className="px-6 py-4 text-sm">
@@ -77,16 +83,25 @@ export default function WorkflowsPage() {
                   <td className="px-6 py-4 text-sm text-gray-700">{w.owner}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{w.created_at ? new Date(w.created_at).toLocaleString() : "—"}</td>
                   <td className="px-6 py-4 text-right text-sm space-x-2">
-                    {w.status === "pending" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/workflows/${w.step_id}`);
+                      }}
+                      className="font-medium text-indigo-600 hover:text-indigo-800 mr-2"
+                    >
+                      View
+                    </button>
+                    {(w.status === "pending" || w.status === "requires_approval") && (
                       <>
                         <button
-                          onClick={() => handleAction(w.step_id, "approve")}
+                          onClick={(e) => { e.stopPropagation(); handleAction(w.step_id, "approve"); }}
                           className="rounded bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700"
                         >
                           Approve
                         </button>
                         <button
-                          onClick={() => handleAction(w.step_id, "reject")}
+                          onClick={(e) => { e.stopPropagation(); handleAction(w.step_id, "reject"); }}
                           className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
                         >
                           Reject

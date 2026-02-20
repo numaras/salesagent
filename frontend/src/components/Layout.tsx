@@ -12,12 +12,16 @@ const navItems = [
   { to: "/properties", label: "Properties", icon: PropertiesIcon },
   { to: "/creative-agents", label: "Creative Agents", icon: CreativeAgentsIcon },
   { to: "/inventory", label: "Inventory", icon: InventoryIcon },
+  { to: "/inventory/browser", label: "Inventory Browser", icon: InventoryIcon },
+  { to: "/inventory/targeting", label: "Targeting Keys", icon: InventoryIcon },
+  { to: "/inventory-profiles", label: "Inventory Profiles", icon: InventoryIcon },
   { to: "/operations", label: "Operations", icon: OperationsIcon },
   { to: "/policy", label: "Policy", icon: PolicyIcon },
   { to: "/users", label: "Users", icon: UsersIcon },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
   { to: "/sso", label: "SSO Config", icon: SsoIcon },
   { to: "/gam-config", label: "GAM Config", icon: GamIcon },
+  { to: "/gam/reporting", label: "GAM Reporting", icon: GamIcon },
 ];
 
 interface Session {

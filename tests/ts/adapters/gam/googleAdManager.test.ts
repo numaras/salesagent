@@ -17,7 +17,7 @@ function makeMockClient(orderId: number = 12345): GamClientWrapper {
         createLineItems: async () => [{ id: 1 }],
       } as unknown as LineItemService;
     },
-  };
+  } as unknown as GamClientWrapper;
 }
 
 function samplePackages(): MediaPackage[] {

@@ -3,6 +3,9 @@
  * Implementations can use HTTP client and optional job queue.
  */
 
+import { processWebhookWithRetry } from "./WebhookDeliveryService.js";
+import crypto from "crypto";
+
 export interface NotificationPayload {
   event: string;
   tenantId: string;
@@ -18,4 +21,23 @@ export interface NotificationService {
 export const noopNotificationService: NotificationService = {
   async sendWebhook() {},
   async sendSlack() {},
+};
+
+export const realNotificationService: NotificationService = {
+  async sendWebhook(url: string, payload: NotificationPayload) {
+    await processWebhookWithRetry(crypto.randomUUID(), url, payload);
+  },
+  async sendSlack(webhookUrl: string, message: string) {
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: message }),
+      });
+    } catch (err) {
+      console.error("Failed to send Slack notification", err);
+    }
+  },
 };
