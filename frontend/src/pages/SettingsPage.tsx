@@ -282,21 +282,46 @@ function AdapterTab({ data, onSaved }: { data: SettingsPayload; onSaved: () => v
     <form onSubmit={save} className="max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="text-lg font-semibold text-gray-900">Ad Server Adapter</h3>
       <FormField label="Adapter Type">
-        <span className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700">
-          {adapterType}
-        </span>
+        <FormSelect
+          value={adapterType}
+          onChange={(e) => setAdapterType(e.target.value)}
+          options={[
+            { value: "mock", label: "Mock Ad Server" },
+            { value: "google_ad_manager", label: "Google Ad Manager" },
+            { value: "kevel", label: "Kevel" },
+            { value: "triton_digital", label: "Triton Digital" },
+            { value: "broadstreet", label: "Broadstreet" },
+          ]}
+        />
       </FormField>
 
-      {adapterType === "gam" && (
+      {adapterType === "google_ad_manager" && (
         <a href="/gam-config" className="inline-block text-sm text-indigo-600 hover:text-indigo-800 font-medium">
           Configure GAM &rarr;
         </a>
       )}
 
       {adapterType === "mock" && (
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm text-gray-700 mt-4">
           <input
             type="checkbox"
+            checked={dryRun}
+            onChange={(e) => setDryRun(e.target.checked)}
+            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Enable Dry Run (simulate responses without writing)
+        </label>
+      )}
+
+      {["kevel", "triton_digital", "broadstreet"].includes(adapterType) && (
+        <div className="mt-4 rounded-md bg-yellow-50 p-4 text-sm text-yellow-800 border border-yellow-200">
+          <p className="font-semibold mb-1">Configuration Required</p>
+          <p>
+            The <strong>{adapterType}</strong> adapter requires an API Key and Network/Station ID. 
+            Currently, these must be configured directly in the database <code>adapter_config</code> table. A dedicated UI configuration page for this adapter will be available in a future update.
+          </p>
+        </div>
+      )}
             checked={dryRun}
             onChange={(e) => setDryRun(e.target.checked)}
             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"

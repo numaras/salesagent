@@ -101,13 +101,26 @@ export function createSettingsRouter(): Router {
       }
 
       const existing = await getAdapterConfigByTenant(db, ctx.tenantId);
+      
+      const configJson = (body.config_json as Record<string, unknown>) ?? existing?.configJson ?? {};
+      if (body.gam_auth_method) {
+        configJson.auth_method = body.gam_auth_method;
+      }
+      
+      const gamFields = {
+        gamNetworkCode: (body.gam_network_code as string) ?? existing?.gamNetworkCode ?? null,
+        gamTraffickerId: (body.gam_trafficker_id as string) ?? existing?.gamTraffickerId ?? null,
+        gamRefreshToken: body.gam_auth_method === "oauth" ? ((body.gam_refresh_token as string) ?? existing?.gamRefreshToken ?? null) : null,
+        gamServiceAccountJson: body.gam_auth_method === "service_account" ? ((body.gam_service_account_json as string) ?? existing?.gamServiceAccountJson ?? null) : null,
+        configJson,
+      };
+
       if (existing) {
         const updated = await db
           .update(adapterConfig)
           .set({
             adapterType: body.adapter_type,
-            configJson: (body.config_json as Record<string, unknown>) ?? existing.configJson,
-            gamNetworkCode: (body.gam_network_code as string) ?? existing.gamNetworkCode,
+            ...gamFields,
             mockDryRun: (body.mock_dry_run as boolean) ?? existing.mockDryRun,
             updatedAt: new Date(),
           })
@@ -121,13 +134,24 @@ export function createSettingsRouter(): Router {
           .values({
             tenantId: ctx.tenantId,
             adapterType: body.adapter_type,
-            configJson: (body.config_json as Record<string, unknown>) ?? {},
-            gamNetworkCode: (body.gam_network_code as string) ?? null,
+            ...gamFields,
             mockDryRun: (body.mock_dry_run as boolean) ?? null,
           })
           .returning();
         const row = inserted[0]!;
         res.status(201).json({ adapter_type: row.adapterType, created_at: row.createdAt });
+      }
+
+      if (body.gam_network_currency && typeof body.gam_network_currency === "string") {
+        await db
+          .insert(currencyLimits)
+          .values({
+            tenantId: ctx.tenantId,
+            currencyCode: body.gam_network_currency,
+            minPackageBudget: "100.00",
+            maxDailyPackageSpend: "10000.00",
+          })
+          .onConflictDoNothing();
       }
     } catch (err) {
       const { status, body } = toHttpError(err);
