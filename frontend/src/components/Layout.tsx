@@ -33,10 +33,20 @@ interface Session {
 export default function Layout() {
   const navigate = useNavigate();
   const [session, setSession] = useState<Session>({ authenticated: false });
+  const [loadingSession, setLoadingSession] = useState(true);
 
   useEffect(() => {
-    apiFetch<Session>("/auth/session").then(setSession).catch(() => {});
-  }, []);
+    apiFetch<Session>("/auth/session")
+      .then((res) => {
+        if (!res.authenticated) {
+          navigate("/login", { replace: true });
+        } else {
+          setSession(res);
+        }
+      })
+      .catch(() => navigate("/login", { replace: true }))
+      .finally(() => setLoadingSession(false));
+  }, [navigate]);
 
   async function handleLogout() {
     try {
@@ -48,6 +58,14 @@ export default function Layout() {
 
   const userInitial = session.email ? session.email[0].toUpperCase() : "?";
   const displayName = session.email ?? "Not logged in";
+
+  if (loadingSession) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#1e293b]">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
