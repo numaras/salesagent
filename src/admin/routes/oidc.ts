@@ -5,6 +5,7 @@ import { headersFromNodeRequest } from "../../core/httpHeaders.js";
 import { getAuthConfig, updateAuthConfig } from "../../services/AuthConfigService.js";
 import { fetchOidcDiscovery, exchangeCodeForTokens, fetchUserInfo } from "../../core/auth/oauth.js";
 import { getDb } from "../../db/client.js";
+import { getTenantById } from "../../db/repositories/tenant.js";
 import { tenantAuthConfigs } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
 
@@ -23,11 +24,14 @@ export function createOidcRouter(): Router {
       const result = await resolveFromHeaders(headers);
       const ctx = toToolContext(result);
       if (!ctx?.tenantId) throw new TenantError();
+      const db = getDb();
+      const tenant = await getTenantById(db, ctx.tenantId);
 
       const config = await getAuthConfig(ctx.tenantId);
       if (!config) {
         res.json({
           oidc_enabled: false,
+          auth_setup_mode: tenant?.authSetupMode ?? true,
           provider: null,
           client_id: null,
           discovery_url: null,
@@ -40,6 +44,7 @@ export function createOidcRouter(): Router {
 
       res.json({
         oidc_enabled: config.oidcEnabled,
+        auth_setup_mode: tenant?.authSetupMode ?? true,
         provider: config.oidcProvider,
         client_id: config.oidcClientId,
         discovery_url: config.oidcDiscoveryUrl,
@@ -245,9 +250,11 @@ export function createOidcRouter(): Router {
 
       if (req.session) {
         const s = req.session as unknown as Record<string, unknown>;
+        s.authenticated = true;
         s.userId = userInfo.sub ?? userInfo.email;
         s.email = userInfo.email;
         s.tenantId = tenantId;
+        s.loginTime = Date.now();
       }
 
       res.redirect("/admin/");

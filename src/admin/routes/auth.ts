@@ -5,6 +5,10 @@ import { AuthError, toHttpError } from "../../core/errors.js";
 import { getDb } from "../../db/client.js";
 import { users } from "../../db/schema.js";
 
+import { resolveFromHeaders, toToolContext } from "../../core/auth/authService.js";
+import { headersFromNodeRequest } from "../../core/httpHeaders.js";
+import { getTenantById } from "../../db/repositories/tenant.js";
+
 function sessionData(req: Request): Record<string, unknown> {
   return req.session as unknown as Record<string, unknown>;
 }
@@ -12,12 +16,25 @@ function sessionData(req: Request): Record<string, unknown> {
 export function createAuthRouter(): Router {
   const router = Router();
 
-  router.post("/auth/test-login", (req: Request, res: Response) => {
+  router.post("/auth/test-login", async (req: Request, res: Response) => {
     try {
       const { password } = req.body as { password?: string };
       if (!password || !validateTestCredentials(password)) {
         throw new AuthError("Invalid credentials");
       }
+
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      
+      if (ctx?.tenantId) {
+        const db = getDb();
+        const tenant = await getTenantById(db, ctx.tenantId);
+        if (tenant && !tenant.authSetupMode) {
+          throw new AuthError("Guest login is disabled for this tenant. Please use SSO.");
+        }
+      }
+
       const sess = sessionData(req);
       sess.authenticated = true;
       sess.loginTime = Date.now();

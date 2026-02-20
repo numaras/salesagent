@@ -22,7 +22,7 @@ export async function pollMediaBuyStatus(): Promise<void> {
         const principal = ensurePrincipal({ principalId: buy.principalId });
         const adapter = await getAdapter(buy.tenantId, principal, false);
         
-        const res = adapter.check_media_buy_status(buy.mediaBuyId, new Date());
+        const res = await adapter.check_media_buy_status(buy.mediaBuyId, new Date());
         
         if (res.status && res.status !== buy.status) {
           await db

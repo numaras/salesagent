@@ -6,7 +6,7 @@ import { headersFromNodeRequest } from "../../core/httpHeaders.js";
 import { getDb } from "../../db/client.js";
 import { getTenantById } from "../../db/repositories/tenant.js";
 import { getAdapterConfigByTenant } from "../../db/repositories/adapter-config.js";
-import { tenants, adapterConfig } from "../../db/schema.js";
+import { tenants, adapterConfig, currencyLimits } from "../../db/schema.js";
 
 async function resolveTenant(req: Request) {
   const headers = headersFromNodeRequest(req);
@@ -45,11 +45,24 @@ export function createSettingsRouter(): Router {
               config_json: adapter.configJson,
             }
           : null,
-        // TODO: populate when tenant schema has these columns
-        slack: { slack_webhook_url: "", slack_audit_webhook_url: "" },
-        ai: { provider: "", model: "", api_key: "" },
-        access: { authorized_domains: [] as string[], authorized_emails: [] as string[] },
-        business_rules: { approval_mode: "manual", order_name_template: "", line_item_name_template: "" },
+        slack: { 
+          slack_webhook_url: tenant.slackWebhookUrl ?? "", 
+          slack_audit_webhook_url: tenant.slackAuditWebhookUrl ?? "" 
+        },
+        ai: { 
+          provider: (tenant.aiConfig as Record<string, string>)?.provider ?? "", 
+          model: (tenant.aiConfig as Record<string, string>)?.model ?? "", 
+          api_key: (tenant.aiConfig as Record<string, string>)?.api_key ?? "" 
+        },
+        access: { 
+          authorized_domains: (tenant.authorizedDomains as string[]) ?? [], 
+          authorized_emails: (tenant.authorizedEmails as string[]) ?? [] 
+        },
+        business_rules: { 
+          approval_mode: (tenant.policies as Record<string, string>)?.approval_mode ?? "manual", 
+          order_name_template: (tenant.policies as Record<string, string>)?.order_name_template ?? "", 
+          line_item_name_template: (tenant.policies as Record<string, string>)?.line_item_name_template ?? "" 
+        },
       });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -278,6 +291,26 @@ export function createSettingsRouter(): Router {
       const current = Array.isArray(rows[0].authorizedEmails) ? rows[0].authorizedEmails : [];
       await db.update(tenants).set({ authorizedEmails: current.filter((e) => e !== body.email), updatedAt: new Date() }).where(eq(tenants.tenantId, ctx.tenantId));
       res.json({ success: true });
+    } catch (err) {
+      const { status, body } = toHttpError(err);
+      res.status(status).json(body);
+    }
+  });
+
+  router.post("/settings/access/setup-mode", async (req: Request, res: Response) => {
+    try {
+      const { db, ctx } = await resolveTenant(req);
+      const body = req.body as Record<string, unknown>;
+      
+      if (typeof body.auth_setup_mode !== "boolean") {
+        throw new ValidationError("auth_setup_mode is required and must be a boolean");
+      }
+
+      await db.update(tenants)
+        .set({ authSetupMode: body.auth_setup_mode, updatedAt: new Date() })
+        .where(eq(tenants.tenantId, ctx.tenantId));
+
+      res.json({ success: true, auth_setup_mode: body.auth_setup_mode });
     } catch (err) {
       const { status, body } = toHttpError(err);
       res.status(status).json(body);
