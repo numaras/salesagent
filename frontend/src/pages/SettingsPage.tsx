@@ -322,27 +322,10 @@ function AdapterTab({ data, onSaved }: { data: SettingsPayload; onSaved: () => v
           </p>
         </div>
       )}
-            checked={dryRun}
-            onChange={(e) => setDryRun(e.target.checked)}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          Dry run mode
-        </label>
-      )}
 
       <div className="pt-2">
-        <FormField label="Change adapter">
-          <FormSelect
-            value={adapterType}
-            onChange={(e) => setAdapterType(e.target.value)}
-            options={[
-              { value: "mock", label: "Mock" },
-              { value: "gam", label: "Google Ad Manager" },
-            ]}
-          />
-        </FormField>
+        <SaveButton saving={saving} />
       </div>
-      <SaveButton saving={saving} />
     </form>
   );
 }
