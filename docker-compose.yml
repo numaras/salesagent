@@ -54,7 +54,13 @@ services:
       dockerfile: Dockerfile
     environment:
       PORT: "3000"
+      NODE_ENV: "${NODE_ENV:-production}"
       DATABASE_URL: postgresql://adcp_user:secure_password_change_me@postgres:5432/adcp?sslmode=disable
+      SESSION_SECRET: "${SESSION_SECRET:-dev-session-secret-change-me}"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:-}"
+      TRUST_PROXY: "${TRUST_PROXY:-loopback}"
+      ADMIN_ALLOWED_IPS: "${ADMIN_ALLOWED_IPS:-}"
+      ADMIN_MFA_SECRET: "${ADMIN_MFA_SECRET:-}"
     ports:
       - "${TS_APP_PORT:-3000}:3000"
     depends_on:

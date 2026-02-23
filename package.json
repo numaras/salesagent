@@ -13,7 +13,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:check": "tsx src/db/check.ts",
     "db:seed": "tsx src/db/seed.ts",
-    "db:encrypt-secrets": "tsx src/db/encryptLegacySecrets.ts"
+    "db:encrypt-secrets": "tsx src/db/encryptLegacySecrets.ts",
+    "db:rotate-encryption-key": "tsx src/db/rotateEncryptionKey.ts"
   },
   "dependencies": {
     "@guardian/google-admanager-api": "^3.1.4",

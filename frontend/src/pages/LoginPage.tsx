@@ -8,6 +8,11 @@ interface OidcStatus {
   provider: string | null;
 }
 
+interface SessionStatus {
+  authenticated: boolean;
+  mfa_required?: boolean;
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -17,15 +22,26 @@ export default function LoginPage() {
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const [setupMode, setSetupMode] = useState(true);
   const [ssoProvider, setSsoProvider] = useState<string | null>(null);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaCode, setMfaCode] = useState("");
 
   useEffect(() => {
-    apiFetch<OidcStatus>("/oidc/config")
-      .then((cfg) => {
-        setSsoEnabled(cfg.oidc_enabled);
-        setSetupMode(cfg.auth_setup_mode);
-        setSsoProvider(cfg.provider);
-      })
-      .catch(() => {});
+    Promise.allSettled([
+      apiFetch<OidcStatus>("/oidc/config"),
+      apiFetch<SessionStatus>("/auth/session"),
+    ]).then((results) => {
+      const oidcResult = results[0];
+      if (oidcResult.status === "fulfilled") {
+        setSsoEnabled(oidcResult.value.oidc_enabled);
+        setSetupMode(oidcResult.value.auth_setup_mode);
+        setSsoProvider(oidcResult.value.provider);
+      }
+
+      const sessionResult = results[1];
+      if (sessionResult.status === "fulfilled" && sessionResult.value.authenticated && sessionResult.value.mfa_required) {
+        setMfaRequired(true);
+      }
+    });
   }, []);
 
   async function handleSubmit(e: FormEvent) {
@@ -49,6 +65,23 @@ export default function LoginPage() {
     window.location.href = "/admin/api/oidc/login";
   }
 
+  async function handleMfaSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await apiFetch("/auth/mfa/verify", {
+        method: "POST",
+        body: JSON.stringify({ code: mfaCode }),
+      });
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "MFA verification failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
@@ -67,6 +100,32 @@ export default function LoginPage() {
             </div>
           )}
 
+          {mfaRequired ? (
+            <form onSubmit={handleMfaSubmit}>
+              <label className="mb-6 block">
+                <span className="mb-1 block text-sm font-medium text-gray-700">MFA Code</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  required
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
+                  placeholder="123456"
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none disabled:opacity-60"
+              >
+                {loading ? "Verifying..." : "Verify MFA"}
+              </button>
+            </form>
+          ) : (
+            <>
           {ssoEnabled && (
             <button
               type="button"
@@ -131,6 +190,8 @@ export default function LoginPage() {
                 Login is disabled. SSO is not configured and Guest Mode is turned off.
               </div>
             )
+          )}
+            </>
           )}
         </div>
       </div>

@@ -27,6 +27,7 @@ import { createOnboardingRouter } from "./routes/onboarding.js";
 import { createOidcRouter } from "./routes/oidc.js";
 import { createGamRouter } from "./routes/gam.js";
 import { createInventoryProfilesRouter } from "./routes/inventoryProfiles.js";
+import { logOperation } from "../services/AuditLogService.js";
 
 /**
  * Routes that do NOT require authentication.
@@ -40,6 +41,7 @@ const PUBLIC_PATHS = [
   "/auth/google/callback",
   "/auth/logout",
   "/auth/session",
+  "/auth/mfa/verify",
   "/oidc/config",
   "/oidc/login",
   "/oidc/callback",
@@ -103,10 +105,51 @@ function requireSession(req: Request, res: Response, next: NextFunction): void {
     res.status(401).json({ error: "AUTH_REQUIRED", message: "Authentication required. Please log in." });
     return;
   }
+  if (sess.mfaVerified === false) {
+    res.status(401).json({ error: "MFA_REQUIRED", message: "Multi-factor verification required." });
+    return;
+  }
   if (!isPrivilegedRole(sess.role)) {
     res.status(403).json({ error: "FORBIDDEN", message: "Admin role required." });
     return;
   }
+  next();
+}
+
+function auditMutations(req: Request, res: Response, next: NextFunction): void {
+  const method = req.method.toUpperCase();
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+    next();
+    return;
+  }
+
+  const sess = req.session as unknown as Record<string, unknown>;
+  const tenantId = typeof sess.tenantId === "string" ? sess.tenantId : null;
+  const principalId = typeof sess.userId === "string" ? sess.userId : null;
+  const principalName = typeof sess.email === "string" ? sess.email : null;
+  const operation = `admin_api:${method}:${req.path}`;
+
+  res.on("finish", () => {
+    if (!tenantId) return;
+    void logOperation(
+      tenantId,
+      operation,
+      principalId,
+      principalName,
+      res.statusCode < 400,
+      {
+        path: req.path,
+        method,
+        status_code: res.statusCode,
+        ip: req.ip,
+        user_agent: req.get("user-agent") ?? null,
+      },
+      res.statusCode >= 400 ? `HTTP_${res.statusCode}` : undefined
+    ).catch(() => {
+      // Never break request lifecycle due to audit logging.
+    });
+  });
+
   next();
 }
 
@@ -117,6 +160,7 @@ export function createAdminRouter(): Router {
 
   // Apply auth middleware to all /api/* routes before any router is mounted
   router.use("/api", requireSession);
+  router.use("/api", auditMutations);
 
   router.get("/api/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", service: "admin-api" });

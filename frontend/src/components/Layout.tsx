@@ -28,6 +28,7 @@ interface Session {
   authenticated: boolean;
   email?: string | null;
   role?: string | null;
+  mfa_required?: boolean;
 }
 
 export default function Layout() {
@@ -40,6 +41,8 @@ export default function Layout() {
       .then((res) => {
         if (!res.authenticated) {
           navigate("/login", { replace: true });
+        } else if (res.mfa_required) {
+          navigate("/login?mfa=1", { replace: true });
         } else {
           setSession(res);
         }

@@ -11,7 +11,7 @@ const { Pool } = pg;
 
 let pool: pg.Pool | null = null;
 
-function getPool(): pg.Pool {
+export function getPool(): pg.Pool {
   if (!pool) {
     const connectionString =
       process.env.DATABASE_URL ||

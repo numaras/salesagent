@@ -11,6 +11,8 @@ import { tenantAuthConfigs, users } from "../../db/schema.js";
 import { and, eq } from "drizzle-orm";
 import { getAdminUrl } from "../../core/domainConfig.js";
 import { isUrlSafeWithDns } from "../../core/security/ssrf.js";
+import { isMfaEnabled } from "../../core/auth/mfa.js";
+import { logOperation } from "../../services/AuditLogService.js";
 
 function buildRedirectUri(req: Request): string {
   const configuredAdminUrl = getAdminUrl();
@@ -317,10 +319,31 @@ export function createOidcRouter(): Router {
         s.role = user.role;
         s.tenantId = tenantId;
         s.loginTime = Date.now();
+        s.mfaVerified = !isMfaEnabled();
       }
+      await logOperation(
+        tenantId,
+        "auth:oidc_login",
+        user.userId,
+        user.email,
+        true,
+        { ip: req.ip, mfa_required: isMfaEnabled() }
+      );
 
       res.redirect("/admin/");
     } catch (err) {
+      const tenantId = (req.session as unknown as Record<string, unknown>)?.tenantId;
+      if (typeof tenantId === "string") {
+        await logOperation(
+          tenantId,
+          "auth:oidc_login",
+          null,
+          null,
+          false,
+          { ip: req.ip },
+          err instanceof Error ? err.message : "unknown_error"
+        ).catch(() => undefined);
+      }
       const { body } = toHttpError(err);
       res.status(500).send(`SSO callback error: ${body.message}`);
     }
