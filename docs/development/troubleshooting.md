@@ -90,9 +90,7 @@ The activity feed uses Server-Sent Events (SSE) for real-time updates.
 **How it works:**
 ```bash
 # 1. Run inventory sync (fast - only fetches keys)
-curl -X POST https://adcp-sales-agent.fly.dev/api/v1/sync/trigger/{tenant_id} \
-  -H "X-API-Key: YOUR_API_KEY" \
-  -d '{"sync_type": "full", "force": true}'
+curl -X POST https://adcp-sales-agent.fly.dev/api/v1/sync/trigger/{tenant_id} -H "X-API-Key: YOUR_API_KEY" -d '{"sync_type": "full", "force": true}' # gitleaks:allow
 
 # 2. Check which keys have values loaded
 curl -X GET https://adcp-sales-agent.fly.dev/api/tenant/{tenant_id}/targeting/all
@@ -104,8 +102,7 @@ curl -X GET "https://adcp-sales-agent.fly.dev/api/tenant/{tenant_id}/targeting/v
 **Check sync status:**
 ```bash
 # Get recent sync jobs
-curl -X GET https://adcp-sales-agent.fly.dev/api/v1/sync/history/{tenant_id}?limit=5 \
-  -H "X-API-Key: YOUR_API_KEY"
+curl -X GET https://adcp-sales-agent.fly.dev/api/v1/sync/history/{tenant_id}?limit=5 -H "X-API-Key: YOUR_API_KEY" # gitleaks:allow
 
 # Check if custom targeting values are loaded
 SELECT
@@ -117,14 +114,12 @@ WHERE tenant_id = '{tenant_id}';
 
 **Force full sync with values (not recommended for large accounts):**
 ```bash
-curl -X POST https://adcp-sales-agent.fly.dev/api/v1/sync/trigger/{tenant_id} \
-  -H "X-API-Key: YOUR_API_KEY" \
-  -d '{
+curl -X POST https://adcp-sales-agent.fly.dev/api/v1/sync/trigger/{tenant_id} -H "X-API-Key: YOUR_API_KEY" -d '{
     "sync_type": "full",
     "fetch_custom_targeting_values": true,
     "custom_targeting_limit": 500,
     "force": true
-  }'
+  }' # gitleaks:allow
 ```
 
 **Performance impact:**
@@ -418,10 +413,7 @@ docker logs adcp-server | grep a2a
 #### A2A Authentication Failed
 ```bash
 # Use Bearer token in Authorization header
-curl -X POST http://localhost:8091/a2a \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "method": "message/send", ...}'
+curl -X POST http://localhost:8091/a2a -H "Authorization: Bearer YOUR_TOKEN" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "message/send", ...}' # gitleaks:allow
 
 # Avoid deprecated query parameter auth
 # Don't use: ?auth=TOKEN

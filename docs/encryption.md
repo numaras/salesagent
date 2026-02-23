@@ -52,7 +52,7 @@ Add the generated key to `.env.secrets`:
 
 ```bash
 # .env.secrets
-ENCRYPTION_KEY=RQhloVU0vooMBdE1d-TvFT5P3JC5dOwt7FPyWiyJbjQ=
+ENCRYPTION_KEY=PASTE_GENERATED_KEY_HERE # gitleaks:allow
 ```
 
 **IMPORTANT**: Never commit this key to version control!
