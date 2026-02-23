@@ -63,9 +63,10 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use("/admin/api/auth", authLimiter);
-app.use("/admin/api/auth/test-login", loginLimiter);
-app.use("/admin/api/auth/mfa/verify", loginLimiter);
+app.use("/admin/api/auth/test-login", authLimiter, loginLimiter);
+app.use("/admin/api/auth/google", authLimiter);
+app.use("/admin/api/auth/google/callback", authLimiter, loginLimiter);
+app.use("/admin/api/auth/mfa/verify", authLimiter, loginLimiter);
 
 app.use(
   session({
