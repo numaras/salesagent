@@ -1,4 +1,5 @@
 import { type Request, type Response, Router } from "express";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { validateTestCredentials, buildGoogleOAuthUrl, exchangeCodeForTokens, fetchUserInfo } from "../../core/auth/oauth.js";
 import { AuthError, toHttpError } from "../../core/errors.js";
@@ -8,9 +9,30 @@ import { users } from "../../db/schema.js";
 import { resolveFromHeaders, toToolContext } from "../../core/auth/authService.js";
 import { headersFromNodeRequest } from "../../core/httpHeaders.js";
 import { getTenantById } from "../../db/repositories/tenant.js";
+import { getAdminUrl } from "../../core/domainConfig.js";
 
 function sessionData(req: Request): Record<string, unknown> {
   return req.session as unknown as Record<string, unknown>;
+}
+
+function generateOAuthState(): string {
+  return randomBytes(32).toString("hex");
+}
+
+function isSafeEqual(a: string, b: string): boolean {
+  const aa = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (aa.length !== bb.length) return false;
+  return timingSafeEqual(aa, bb);
+}
+
+function getGoogleRedirectUri(req: Request): string {
+  const configuredAdminUrl = getAdminUrl();
+  if (configuredAdminUrl) {
+    return `${configuredAdminUrl}/admin/api/auth/google/callback`;
+  }
+  const host = req.get("host") ?? "localhost:3000";
+  return `${req.protocol}://${host}/admin/api/auth/google/callback`;
 }
 
 export function createAuthRouter(): Router {
@@ -41,6 +63,7 @@ export function createAuthRouter(): Router {
 
       const sess = sessionData(req);
       sess.authenticated = true;
+      sess.role = "admin";
       sess.loginTime = Date.now();
       res.json({ success: true, token: "test-token" });
     } catch (err) {
@@ -85,10 +108,11 @@ export function createAuthRouter(): Router {
         return;
       }
 
-      const redirectUri = `${req.protocol}://${req.get("host")}/admin/api/auth/google/callback`;
+      const redirectUri = getGoogleRedirectUri(req);
       const sess = sessionData(req);
-      const state = String(Date.now());
+      const state = generateOAuthState();
       sess.oauthState = state;
+      sess.oauthStateCreatedAt = Date.now();
 
       const url = buildGoogleOAuthUrl(
         { clientId, clientSecret, scopes: ["openid", "email", "profile"], redirectUri },
@@ -104,8 +128,24 @@ export function createAuthRouter(): Router {
   router.get("/auth/google/callback", async (req: Request, res: Response) => {
     try {
       const code = req.query.code as string | undefined;
+      const state = req.query.state as string | undefined;
       if (!code) {
         throw new AuthError("Missing authorization code");
+      }
+      if (!state) {
+        throw new AuthError("Missing OAuth state");
+      }
+
+      const sess = sessionData(req);
+      const expectedState = typeof sess.oauthState === "string" ? sess.oauthState : "";
+      const stateIssuedAt = Number(sess.oauthStateCreatedAt ?? 0);
+      delete sess.oauthState;
+      delete sess.oauthStateCreatedAt;
+      if (!expectedState || !isSafeEqual(expectedState, state)) {
+        throw new AuthError("Invalid OAuth state");
+      }
+      if (!stateIssuedAt || Date.now() - stateIssuedAt > 10 * 60 * 1000) {
+        throw new AuthError("Expired OAuth state");
       }
 
       const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -114,7 +154,7 @@ export function createAuthRouter(): Router {
         throw new AuthError("Google OAuth is not configured");
       }
 
-      const redirectUri = `${req.protocol}://${req.get("host")}/admin/api/auth/google/callback`;
+      const redirectUri = getGoogleRedirectUri(req);
 
       const tokens = await exchangeCodeForTokens(
         "https://oauth2.googleapis.com/token",
@@ -144,13 +184,13 @@ export function createAuthRouter(): Router {
         return;
       }
 
-      const sess = sessionData(req);
-      sess.authenticated = true;
-      sess.userId = user.userId;
-      sess.tenantId = user.tenantId;
-      sess.email = user.email;
-      sess.role = user.role;
-      sess.loginTime = Date.now();
+      const loggedInSession = sessionData(req);
+      loggedInSession.authenticated = true;
+      loggedInSession.userId = user.userId;
+      loggedInSession.tenantId = user.tenantId;
+      loggedInSession.email = user.email;
+      loggedInSession.role = user.role;
+      loggedInSession.loginTime = Date.now();
 
       res.redirect("/admin/");
     } catch (err) {

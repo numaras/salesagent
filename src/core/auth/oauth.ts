@@ -6,6 +6,7 @@
 import { getDb } from "../../db/client.js";
 import { tenantAuthConfigs } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
+import { isUrlSafeWithDns } from "../security/ssrf.js";
 
 export interface OAuthConfig {
   clientId: string;
@@ -48,6 +49,9 @@ export async function getOidcConfigForTenant(tenantId: string): Promise<{
 }
 
 export async function fetchOidcDiscovery(discoveryUrl: string): Promise<OidcDiscovery> {
+  if (!(await isUrlSafeWithDns(discoveryUrl))) {
+    throw new Error("OIDC discovery URL blocked by SSRF policy");
+  }
   const res = await fetch(discoveryUrl);
   if (!res.ok) throw new Error("OIDC discovery failed: " + res.status);
   return res.json() as Promise<OidcDiscovery>;
@@ -71,6 +75,9 @@ export async function exchangeCodeForTokens(
   code: string,
   config: OAuthConfig
 ): Promise<{ access_token: string; id_token?: string; refresh_token?: string }> {
+  if (!(await isUrlSafeWithDns(tokenEndpoint))) {
+    throw new Error("OIDC token endpoint blocked by SSRF policy");
+  }
   const res = await fetch(tokenEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -93,6 +100,9 @@ export async function fetchUserInfo(
   userinfoEndpoint: string,
   accessToken: string
 ): Promise<{ email: string; name?: string; sub?: string; picture?: string }> {
+  if (!(await isUrlSafeWithDns(userinfoEndpoint))) {
+    throw new Error("OIDC userinfo endpoint blocked by SSRF policy");
+  }
   const res = await fetch(userinfoEndpoint, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });

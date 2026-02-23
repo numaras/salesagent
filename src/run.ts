@@ -24,6 +24,7 @@ const app = express();
 const mcp = createMcpServer();
 const PORT = Number(process.env.PORT) || 3000;
 
+app.set("trust proxy", process.env.TRUST_PROXY ?? "loopback");
 app.use(helmet({ contentSecurityPolicy: false }));
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });

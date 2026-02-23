@@ -47,6 +47,52 @@ const PUBLIC_PATHS = [
   "/health",
 ];
 
+function isPrivilegedRole(role: unknown): boolean {
+  if (typeof role !== "string") return false;
+  const normalized = role.trim().toLowerCase();
+  return normalized === "admin" || normalized === "owner" || normalized === "super_admin";
+}
+
+function requireSameOriginForMutations(req: Request, res: Response, next: NextFunction): void {
+  const method = req.method.toUpperCase();
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+    next();
+    return;
+  }
+
+  const host = req.get("host");
+  if (!host) {
+    res.status(403).json({ error: "CSRF_CHECK_FAILED", message: "Missing host header" });
+    return;
+  }
+
+  const origin = req.get("origin");
+  if (origin) {
+    try {
+      if (new URL(origin).host === host) {
+        next();
+        return;
+      }
+    } catch {
+      // Fall through to block.
+    }
+  }
+
+  const referer = req.get("referer");
+  if (referer) {
+    try {
+      if (new URL(referer).host === host) {
+        next();
+        return;
+      }
+    } catch {
+      // Fall through to block.
+    }
+  }
+
+  res.status(403).json({ error: "CSRF_CHECK_FAILED", message: "Origin check failed" });
+}
+
 function requireSession(req: Request, res: Response, next: NextFunction): void {
   const path = req.path;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
@@ -57,11 +103,17 @@ function requireSession(req: Request, res: Response, next: NextFunction): void {
     res.status(401).json({ error: "AUTH_REQUIRED", message: "Authentication required. Please log in." });
     return;
   }
+  if (!isPrivilegedRole(sess.role)) {
+    res.status(403).json({ error: "FORBIDDEN", message: "Admin role required." });
+    return;
+  }
   next();
 }
 
 export function createAdminRouter(): Router {
   const router = Router();
+
+  router.use("/api", requireSameOriginForMutations);
 
   // Apply auth middleware to all /api/* routes before any router is mounted
   router.use("/api", requireSession);

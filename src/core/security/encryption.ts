@@ -6,6 +6,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 const ALGO = "aes-256-gcm";
+const ENCRYPTED_PREFIX = "enc:v1:";
 
 function getKey(): Buffer {
   const raw = process.env.ENCRYPTION_KEY;
@@ -32,4 +33,19 @@ export function decrypt(ciphertext: string): string {
   const decipher = createDecipheriv(ALGO, key, iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
+}
+
+export function encryptForStorage(plaintext: string): string {
+  if (!plaintext) return plaintext;
+  if (plaintext.startsWith(ENCRYPTED_PREFIX)) return plaintext;
+  return `${ENCRYPTED_PREFIX}${encrypt(plaintext)}`;
+}
+
+export function decryptFromStorage(value: string): string {
+  if (!value) return value;
+  if (!value.startsWith(ENCRYPTED_PREFIX)) {
+    // Backward compatibility for legacy plaintext rows.
+    return value;
+  }
+  return decrypt(value.slice(ENCRYPTED_PREFIX.length));
 }

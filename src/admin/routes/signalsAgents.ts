@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { resolveFromHeaders, toToolContext } from "../../core/auth/authService.js";
 import { NotFoundError, TenantError, toHttpError, ValidationError } from "../../core/errors.js";
 import { headersFromNodeRequest } from "../../core/httpHeaders.js";
+import { encryptForStorage } from "../../core/security/encryption.js";
 import { getDb } from "../../db/client.js";
 import { signalsAgents } from "../../db/schema.js";
 
@@ -68,7 +69,9 @@ export function createSignalsAgentsRouter(): Router {
           timeout: (body.timeout as number) ?? 30,
           authType: (body.auth_type as string) ?? null,
           authHeader: (body.auth_header as string) ?? null,
-          authCredentials: (body.auth_credentials as string) ?? null,
+          authCredentials: (body.auth_credentials as string)
+            ? encryptForStorage(body.auth_credentials as string)
+            : null,
           forwardPromotedOffering: (body.forward_promoted_offering as boolean) ?? true,
         })
         .returning();
@@ -109,7 +112,9 @@ export function createSignalsAgentsRouter(): Router {
           timeout: (body.timeout as number) ?? prev.timeout,
           authType: (body.auth_type as string) ?? prev.authType,
           authHeader: (body.auth_header as string) ?? prev.authHeader,
-          authCredentials: (body.auth_credentials as string) ?? prev.authCredentials,
+          authCredentials: (body.auth_credentials as string)
+            ? encryptForStorage(body.auth_credentials as string)
+            : prev.authCredentials,
           forwardPromotedOffering: (body.forward_promoted_offering as boolean) ?? prev.forwardPromotedOffering,
           updatedAt: new Date(),
         })

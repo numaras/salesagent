@@ -6,6 +6,7 @@ import { headersFromNodeRequest } from "../../core/httpHeaders.js";
 import { getDb } from "../../db/client.js";
 import { getAdapterConfigByTenant } from "../../db/repositories/adapter-config.js";
 import { adapterConfig, currencyLimits } from "../../db/schema.js";
+import { encryptForStorage } from "../../core/security/encryption.js";
 import { getFormatMetrics } from "../../services/FormatMetricsService.js";
 
 import { createGamClient } from "../../adapters/gam/client.js";
@@ -92,8 +93,9 @@ export function createGamRouter(): Router {
       const gamFields = {
         gamNetworkCode: network_code,
         gamTraffickerId: trafficker_id ?? null,
-        gamRefreshToken: auth_method === "oauth" ? (refresh_token ?? null) : null,
-        gamServiceAccountJson: auth_method === "service_account" ? (service_account_json ?? null) : null,
+        gamRefreshToken: auth_method === "oauth" && refresh_token ? encryptForStorage(refresh_token) : null,
+        gamServiceAccountJson:
+          auth_method === "service_account" && service_account_json ? encryptForStorage(service_account_json) : null,
         configJson: { ...(existing?.configJson as Record<string, unknown> ?? {}), auth_method },
         updatedAt: new Date(),
       };

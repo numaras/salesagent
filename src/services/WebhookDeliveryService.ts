@@ -5,7 +5,7 @@
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { signPayload } from "../core/security/hmac.js";
-import { isUrlSafe } from "../core/security/ssrf.js";
+import { isUrlSafeWithDns } from "../core/security/ssrf.js";
 import { ValidationError } from "../core/errors.js";
 import { getDb } from "../db/client.js";
 import { webhookDeliveries, webhookDeliveryLog } from "../db/schema.js";
@@ -23,7 +23,7 @@ export async function deliverWebhook(
   payload: unknown,
   secret?: string
 ): Promise<DeliveryResult> {
-  if (!isUrlSafe(url)) {
+  if (!(await isUrlSafeWithDns(url))) {
     throw new ValidationError(`Webhook URL blocked by SSRF policy: ${url}`);
   }
 

@@ -3,10 +3,53 @@ import { eq } from "drizzle-orm";
 import { resolveFromHeaders, toToolContext } from "../../core/auth/authService.js";
 import { NotFoundError, TenantError, toHttpError, ValidationError } from "../../core/errors.js";
 import { headersFromNodeRequest } from "../../core/httpHeaders.js";
+import { encryptForStorage } from "../../core/security/encryption.js";
 import { getDb } from "../../db/client.js";
 import { getTenantById } from "../../db/repositories/tenant.js";
 import { getAdapterConfigByTenant } from "../../db/repositories/adapter-config.js";
 import { tenants, adapterConfig, currencyLimits } from "../../db/schema.js";
+
+const SENSITIVE_CONFIG_KEYS = new Set([
+  "apikey",
+  "api_key",
+  "token",
+  "secret",
+  "clientsecret",
+  "client_secret",
+  "password",
+]);
+
+function isSensitiveConfigKey(key: string): boolean {
+  const normalized = key.replace(/[^a-z0-9_]/gi, "").toLowerCase();
+  if (SENSITIVE_CONFIG_KEYS.has(normalized)) return true;
+  return normalized.includes("apikey") || normalized.endsWith("token") || normalized.endsWith("secret");
+}
+
+function sanitizeConfigJsonForResponse(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => sanitizeConfigJsonForResponse(item));
+  if (!value || typeof value !== "object") return value;
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = isSensitiveConfigKey(k) ? "" : sanitizeConfigJsonForResponse(v);
+  }
+  return out;
+}
+
+function encryptSensitiveConfigJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => encryptSensitiveConfigJson(item));
+  if (!value || typeof value !== "object") return value;
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === "string" && isSensitiveConfigKey(k) && v.trim().length > 0) {
+      out[k] = encryptForStorage(v.trim());
+      continue;
+    }
+    out[k] = encryptSensitiveConfigJson(v);
+  }
+  return out;
+}
 
 async function resolveTenant(req: Request) {
   const headers = headersFromNodeRequest(req);
@@ -42,17 +85,20 @@ export function createSettingsRouter(): Router {
               adapter_type: adapter.adapterType,
               mock_dry_run: adapter.mockDryRun,
               gam_network_code: adapter.gamNetworkCode,
-              config_json: adapter.configJson,
+              config_json: sanitizeConfigJsonForResponse(adapter.configJson),
             }
           : null,
         slack: { 
-          slack_webhook_url: tenant.slackWebhookUrl ?? "", 
-          slack_audit_webhook_url: tenant.slackAuditWebhookUrl ?? "" 
+          slack_webhook_url: "",
+          slack_audit_webhook_url: "",
+          slack_webhook_configured: !!tenant.slackWebhookUrl,
+          slack_audit_webhook_configured: !!tenant.slackAuditWebhookUrl,
         },
         ai: { 
           provider: (tenant.aiConfig as Record<string, string>)?.provider ?? "", 
           model: (tenant.aiConfig as Record<string, string>)?.model ?? "", 
-          api_key: (tenant.aiConfig as Record<string, string>)?.api_key ?? "" 
+          api_key: "",
+          api_key_configured: !!(tenant.aiConfig as Record<string, string>)?.api_key,
         },
         access: { 
           authorized_domains: (tenant.authorizedDomains as string[]) ?? [], 
@@ -119,7 +165,18 @@ export function createSettingsRouter(): Router {
 
       const existing = await getAdapterConfigByTenant(db, ctx.tenantId);
       
-      const configJson = (body.config_json as Record<string, unknown>) ?? existing?.configJson ?? {};
+      const existingConfigJson = (existing?.configJson as Record<string, unknown>) ?? {};
+      const incomingConfigJson = (body.config_json as Record<string, unknown>) ?? {};
+      const mergedConfigJson: Record<string, unknown> = {
+        ...existingConfigJson,
+        ...incomingConfigJson,
+      };
+      for (const [key, value] of Object.entries(incomingConfigJson)) {
+        if (isSensitiveConfigKey(key) && typeof value === "string" && value.trim().length === 0) {
+          mergedConfigJson[key] = existingConfigJson[key];
+        }
+      }
+      const configJson = encryptSensitiveConfigJson(mergedConfigJson) as Record<string, unknown>;
       if (body.gam_auth_method) {
         configJson.auth_method = body.gam_auth_method;
       }
@@ -127,8 +184,18 @@ export function createSettingsRouter(): Router {
       const gamFields = {
         gamNetworkCode: (body.gam_network_code as string) ?? existing?.gamNetworkCode ?? null,
         gamTraffickerId: (body.gam_trafficker_id as string) ?? existing?.gamTraffickerId ?? null,
-        gamRefreshToken: body.gam_auth_method === "oauth" ? ((body.gam_refresh_token as string) ?? existing?.gamRefreshToken ?? null) : null,
-        gamServiceAccountJson: body.gam_auth_method === "service_account" ? ((body.gam_service_account_json as string) ?? existing?.gamServiceAccountJson ?? null) : null,
+        gamRefreshToken:
+          body.gam_auth_method === "oauth"
+            ? (((body.gam_refresh_token as string) ?? existing?.gamRefreshToken ?? null)
+              ? encryptForStorage((body.gam_refresh_token as string) ?? existing?.gamRefreshToken ?? "")
+              : null)
+            : null,
+        gamServiceAccountJson:
+          body.gam_auth_method === "service_account"
+            ? (((body.gam_service_account_json as string) ?? existing?.gamServiceAccountJson ?? null)
+              ? encryptForStorage((body.gam_service_account_json as string) ?? existing?.gamServiceAccountJson ?? "")
+              : null)
+            : null,
         configJson,
       };
 
@@ -181,11 +248,23 @@ export function createSettingsRouter(): Router {
       const { ctx } = await resolveTenant(req);
       const body = req.body as Record<string, unknown>;
       const db = getDb();
+      const existingRows = await db.select().from(tenants).where(eq(tenants.tenantId, ctx.tenantId)).limit(1);
+      const existing = existingRows[0];
+
+      const nextSlackWebhookUrl =
+        typeof body.slack_webhook_url === "string" && body.slack_webhook_url.trim().length > 0
+          ? body.slack_webhook_url.trim()
+          : (existing?.slackWebhookUrl ?? null);
+      const nextSlackAuditWebhookUrl =
+        typeof body.slack_audit_webhook_url === "string" && body.slack_audit_webhook_url.trim().length > 0
+          ? body.slack_audit_webhook_url.trim()
+          : (existing?.slackAuditWebhookUrl ?? null);
+
       await db
         .update(tenants)
         .set({
-          slackWebhookUrl: (body.slack_webhook_url as string) || null,
-          slackAuditWebhookUrl: (body.slack_audit_webhook_url as string) || null,
+          slackWebhookUrl: nextSlackWebhookUrl,
+          slackAuditWebhookUrl: nextSlackAuditWebhookUrl,
           updatedAt: new Date(),
         })
         .where(eq(tenants.tenantId, ctx.tenantId));
@@ -202,11 +281,16 @@ export function createSettingsRouter(): Router {
       const { ctx } = await resolveTenant(req);
       const body = req.body as Record<string, unknown>;
       const db = getDb();
+      const tenantRows = await db.select({ aiConfig: tenants.aiConfig }).from(tenants).where(eq(tenants.tenantId, ctx.tenantId)).limit(1);
+      const existingAi = (tenantRows[0]?.aiConfig as Record<string, unknown> | undefined) ?? {};
       
       const aiConfig = {
-        provider: body.provider,
-        model: body.model,
-        api_key: body.api_key,
+        provider: body.provider ?? existingAi.provider ?? "",
+        model: body.model ?? existingAi.model ?? "",
+        api_key:
+          typeof body.api_key === "string" && body.api_key.trim().length > 0
+            ? body.api_key.trim()
+            : (existingAi.api_key ?? ""),
       };
 
       await db

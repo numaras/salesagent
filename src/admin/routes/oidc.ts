@@ -1,18 +1,35 @@
 import { type Request, type Response, Router } from "express";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { resolveFromHeaders, toToolContext } from "../../core/auth/authService.js";
-import { TenantError, toHttpError, ValidationError } from "../../core/errors.js";
+import { AuthError, TenantError, toHttpError, ValidationError } from "../../core/errors.js";
 import { headersFromNodeRequest } from "../../core/httpHeaders.js";
 import { getAuthConfig, updateAuthConfig } from "../../services/AuthConfigService.js";
 import { fetchOidcDiscovery, exchangeCodeForTokens, fetchUserInfo } from "../../core/auth/oauth.js";
 import { getDb } from "../../db/client.js";
 import { getTenantById } from "../../db/repositories/tenant.js";
-import { tenantAuthConfigs } from "../../db/schema.js";
-import { eq } from "drizzle-orm";
+import { tenantAuthConfigs, users } from "../../db/schema.js";
+import { and, eq } from "drizzle-orm";
+import { getAdminUrl } from "../../core/domainConfig.js";
+import { isUrlSafeWithDns } from "../../core/security/ssrf.js";
 
 function buildRedirectUri(req: Request): string {
-  const proto = req.get("x-forwarded-proto") ?? req.protocol ?? "http";
-  const host = req.get("x-forwarded-host") ?? req.get("host") ?? "localhost:3000";
-  return `${proto}://${host}/admin/api/oidc/callback`;
+  const configuredAdminUrl = getAdminUrl();
+  if (configuredAdminUrl) {
+    return `${configuredAdminUrl}/admin/api/oidc/callback`;
+  }
+  const host = req.get("host") ?? "localhost:3000";
+  return `${req.protocol}://${host}/admin/api/oidc/callback`;
+}
+
+function generateOidcState(): string {
+  return randomBytes(32).toString("hex");
+}
+
+function safeCompare(a: string, b: string): boolean {
+  const aa = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (aa.length !== bb.length) return false;
+  return timingSafeEqual(aa, bb);
 }
 
 export function createOidcRouter(): Router {
@@ -84,11 +101,18 @@ export function createOidcRouter(): Router {
       if (!provider || !client_id || !discovery_url) {
         throw new ValidationError("provider, client_id, and discovery_url are required");
       }
+      if (!(await isUrlSafeWithDns(discovery_url))) {
+        throw new ValidationError("discovery_url blocked by SSRF policy");
+      }
+      const existingConfig = await getAuthConfig(ctx.tenantId);
 
       const row = await updateAuthConfig(ctx.tenantId, {
         oidcProvider: provider,
         oidcClientId: client_id,
-        oidcClientSecretEncrypted: client_secret ?? null,
+        oidcClientSecretEncrypted:
+          typeof client_secret === "string" && client_secret.trim().length > 0
+            ? client_secret.trim()
+            : (existingConfig?.oidcClientSecretEncrypted ?? null),
         oidcDiscoveryUrl: discovery_url,
         oidcScopes: scopes ?? "openid email profile",
         oidcLogoutUrl: logout_url ?? null,
@@ -198,13 +222,18 @@ export function createOidcRouter(): Router {
       const discovery = await fetchOidcDiscovery(config.oidcDiscoveryUrl);
       const redirectUri = buildRedirectUri(req);
       const scopes = config.oidcScopes ?? "openid email profile";
+      const state = generateOidcState();
+      const session = req.session as unknown as Record<string, unknown>;
+      session.oidcState = state;
+      session.oidcStateTenantId = tenantId;
+      session.oidcStateCreatedAt = Date.now();
 
       const params = new URLSearchParams({
         client_id: config.oidcClientId,
         redirect_uri: redirectUri,
         response_type: "code",
         scope: scopes,
-        state: tenantId,
+        state,
       });
 
       res.redirect(`${discovery.authorization_endpoint}?${params}`);
@@ -222,8 +251,27 @@ export function createOidcRouter(): Router {
         res.status(400).send("Missing code parameter from identity provider");
         return;
       }
+      if (!state) {
+        throw new AuthError("Missing OIDC state");
+      }
+      const session = req.session as unknown as Record<string, unknown>;
+      const expectedState = typeof session.oidcState === "string" ? session.oidcState : "";
+      const expectedTenantId = typeof session.oidcStateTenantId === "string" ? session.oidcStateTenantId : "";
+      const stateCreatedAt = Number(session.oidcStateCreatedAt ?? 0);
+      delete session.oidcState;
+      delete session.oidcStateTenantId;
+      delete session.oidcStateCreatedAt;
 
-      const tenantId = state ?? "default";
+      if (!expectedState || !safeCompare(expectedState, state)) {
+        throw new AuthError("Invalid OIDC state");
+      }
+      if (!stateCreatedAt || Date.now() - stateCreatedAt > 10 * 60 * 1000) {
+        throw new AuthError("Expired OIDC state");
+      }
+      if (!expectedTenantId) {
+        throw new AuthError("Missing tenant in OIDC session");
+      }
+      const tenantId = expectedTenantId;
       const config = await getAuthConfig(tenantId);
       if (!config?.oidcDiscoveryUrl || !config.oidcClientId) {
         res.status(400).send("OIDC not configured for this tenant");
@@ -241,8 +289,21 @@ export function createOidcRouter(): Router {
       });
 
       const userInfo = await fetchUserInfo(discovery.userinfo_endpoint, tokens.access_token);
+      if (!userInfo.email) {
+        throw new AuthError("No email returned from identity provider");
+      }
 
       const db = getDb();
+      const matchedUsers = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.email, userInfo.email), eq(users.tenantId, tenantId)))
+        .limit(1);
+      const user = matchedUsers[0];
+      if (!user || !user.isActive) {
+        res.status(403).send("User not found or not authorized for this tenant.");
+        return;
+      }
       await db
         .update(tenantAuthConfigs)
         .set({ oidcVerifiedAt: new Date(), updatedAt: new Date() })
@@ -251,8 +312,9 @@ export function createOidcRouter(): Router {
       if (req.session) {
         const s = req.session as unknown as Record<string, unknown>;
         s.authenticated = true;
-        s.userId = userInfo.sub ?? userInfo.email;
-        s.email = userInfo.email;
+        s.userId = user.userId;
+        s.email = user.email;
+        s.role = user.role;
         s.tenantId = tenantId;
         s.loginTime = Date.now();
       }

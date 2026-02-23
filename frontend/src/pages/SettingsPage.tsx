@@ -21,8 +21,13 @@ interface SettingsPayload {
     gam_network_code: string | null;
     config_json: Record<string, unknown>;
   } | null;
-  slack: { slack_webhook_url: string; slack_audit_webhook_url: string };
-  ai: { provider: string; model: string; api_key: string };
+  slack: {
+    slack_webhook_url: string;
+    slack_audit_webhook_url: string;
+    slack_webhook_configured?: boolean;
+    slack_audit_webhook_configured?: boolean;
+  };
+  ai: { provider: string; model: string; api_key: string; api_key_configured?: boolean };
   access: { authorized_domains: string[]; authorized_emails: string[] };
   business_rules: { 
     approval_mode: string; 
@@ -476,9 +481,12 @@ function SlackTab({ data, onSaved }: { data: SettingsPayload; onSaved: () => voi
     e.preventDefault();
     setSaving(true);
     try {
+      const payload: Record<string, string> = {};
+      if (webhookUrl.trim()) payload.slack_webhook_url = webhookUrl.trim();
+      if (auditUrl.trim()) payload.slack_audit_webhook_url = auditUrl.trim();
       await apiFetch("/settings/slack", {
         method: "POST",
-        body: JSON.stringify({ slack_webhook_url: webhookUrl, slack_audit_webhook_url: auditUrl }),
+        body: JSON.stringify(payload),
       });
       onSaved();
     } catch (err) {
@@ -491,6 +499,9 @@ function SlackTab({ data, onSaved }: { data: SettingsPayload; onSaved: () => voi
   return (
     <form onSubmit={save} className="max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
       <h3 className="text-lg font-semibold text-gray-900">Slack Integration</h3>
+      {data.slack.slack_webhook_configured && (
+        <p className="text-xs text-gray-500">A webhook URL is already configured. Enter a new value to rotate it.</p>
+      )}
       <FormField label="Webhook URL">
         <Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.slack.com/services/..." />
       </FormField>
@@ -523,9 +534,11 @@ function AITab({ data, onSaved }: { data: SettingsPayload; onSaved: () => void }
     e.preventDefault();
     setSaving(true);
     try {
+      const payload: Record<string, string> = { provider, model };
+      if (apiKey.trim()) payload.api_key = apiKey.trim();
       await apiFetch("/settings/ai", {
         method: "POST",
-        body: JSON.stringify({ provider, model, api_key: apiKey }),
+        body: JSON.stringify(payload),
       });
       onSaved();
     } catch (err) {
@@ -554,6 +567,9 @@ function AITab({ data, onSaved }: { data: SettingsPayload; onSaved: () => void }
       <FormField label="API Key">
         <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." />
       </FormField>
+      {data.ai.api_key_configured && (
+        <p className="text-xs text-gray-500">An API key is already configured. Leave blank to keep existing.</p>
+      )}
       <SaveButton saving={saving} />
     </form>
   );
