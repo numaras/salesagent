@@ -50,6 +50,10 @@ const PUBLIC_PATHS = [
   "/health",
 ];
 
+export function isPublicApiPath(path: string): boolean {
+  return PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+}
+
 function isPrivilegedRole(role: unknown): boolean {
   if (typeof role !== "string") return false;
   const normalized = role.trim().toLowerCase();
@@ -98,7 +102,7 @@ function requireSameOriginForMutations(req: Request, res: Response, next: NextFu
 
 function requireSession(req: Request, res: Response, next: NextFunction): void {
   const path = req.path;
-  const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+  const isPublic = isPublicApiPath(path);
   if (isPublic) { next(); return; }
 
   const sess = req.session as unknown as Record<string, unknown>;
