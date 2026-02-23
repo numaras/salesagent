@@ -125,7 +125,7 @@ export function createAuthRouter(): Router {
       sess.email = "guest-admin@local";
       sess.userId = `guest_${tenantId}`;
       sess.loginTime = Date.now();
-      sess.mfaVerified = !isMfaEnabled();
+      sess.mfaVerified = !(await isMfaEnabled(tenantId));
       clearAuthFailures(req);
       await logOperation(
         tenantId,
@@ -133,7 +133,7 @@ export function createAuthRouter(): Router {
         String(sess.userId),
         String(sess.email),
         true,
-        { ip: req.ip, mfa_required: isMfaEnabled() }
+        { ip: req.ip, mfa_required: await isMfaEnabled(tenantId) }
       );
       res.json({ success: true, token: "test-token" });
     } catch (err) {
@@ -180,31 +180,32 @@ export function createAuthRouter(): Router {
       if (!sess.authenticated) {
         throw new AuthError("Authentication required before MFA verification.");
       }
-      if (!isMfaEnabled()) {
+      const tenantId = typeof sess.tenantId === "string" ? sess.tenantId : "";
+      if (!tenantId) {
+        throw new AuthError("Tenant context missing for MFA.");
+      }
+      if (!(await isMfaEnabled(tenantId))) {
         sess.mfaVerified = true;
         res.json({ success: true, mfa_required: false });
         return;
       }
 
       const { code } = req.body as { code?: string };
-      if (!code || !verifyMfaCode(code)) {
+      if (!code || !(await verifyMfaCode(tenantId, code))) {
         recordAuthFailure(req);
         throw new AuthError("Invalid MFA code.");
       }
 
       sess.mfaVerified = true;
       clearAuthFailures(req);
-      const tenantId = typeof sess.tenantId === "string" ? sess.tenantId : null;
-      if (tenantId) {
-        await logOperation(
-          tenantId,
-          "auth:mfa_verify",
-          typeof sess.userId === "string" ? sess.userId : null,
-          typeof sess.email === "string" ? sess.email : null,
-          true,
-          { ip: req.ip }
-        );
-      }
+      await logOperation(
+        tenantId,
+        "auth:mfa_verify",
+        typeof sess.userId === "string" ? sess.userId : null,
+        typeof sess.email === "string" ? sess.email : null,
+        true,
+        { ip: req.ip }
+      );
       res.json({ success: true, mfa_required: false });
     } catch (err) {
       const sess = sessionData(req);
@@ -328,7 +329,7 @@ export function createAuthRouter(): Router {
       loggedInSession.email = user.email;
       loggedInSession.role = user.role;
       loggedInSession.loginTime = Date.now();
-      loggedInSession.mfaVerified = !isMfaEnabled();
+      loggedInSession.mfaVerified = !(await isMfaEnabled(user.tenantId));
       clearAuthFailures(req);
       await logOperation(
         user.tenantId,
@@ -336,7 +337,7 @@ export function createAuthRouter(): Router {
         user.userId,
         user.email,
         true,
-        { ip: req.ip, mfa_required: isMfaEnabled() }
+        { ip: req.ip, mfa_required: await isMfaEnabled(user.tenantId) }
       );
 
       res.redirect("/admin/");

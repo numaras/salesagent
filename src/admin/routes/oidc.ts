@@ -319,7 +319,7 @@ export function createOidcRouter(): Router {
         s.role = user.role;
         s.tenantId = tenantId;
         s.loginTime = Date.now();
-        s.mfaVerified = !isMfaEnabled();
+        s.mfaVerified = !(await isMfaEnabled(tenantId));
       }
       await logOperation(
         tenantId,
@@ -327,7 +327,7 @@ export function createOidcRouter(): Router {
         user.userId,
         user.email,
         true,
-        { ip: req.ip, mfa_required: isMfaEnabled() }
+        { ip: req.ip, mfa_required: await isMfaEnabled(tenantId) }
       );
 
       res.redirect("/admin/");

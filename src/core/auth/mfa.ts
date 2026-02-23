@@ -1,7 +1,16 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { eq } from "drizzle-orm";
+import { getDb } from "../../db/client.js";
+import { superadminConfig } from "../../db/schema.js";
+import { decryptFromStorage, encryptForStorage } from "../security/encryption.js";
 
 const TOTP_STEP_SECONDS = 30;
 const TOTP_DIGITS = 6;
+const MFA_CONFIG_KEY_PREFIX = "mfa_secret:";
+
+function mfaConfigKey(tenantId: string): string {
+  return `${MFA_CONFIG_KEY_PREFIX}${tenantId}`;
+}
 
 function base32Decode(input: string): Buffer {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -53,13 +62,7 @@ function safeStringEqual(a: string, b: string): boolean {
   return timingSafeEqual(aa, bb);
 }
 
-export function isMfaEnabled(): boolean {
-  return Boolean(process.env.ADMIN_MFA_SECRET);
-}
-
-export function verifyMfaCode(inputCode: string): boolean {
-  const secretRaw = process.env.ADMIN_MFA_SECRET;
-  if (!secretRaw) return true;
+export function verifyMfaCodeForSecret(secretRaw: string, inputCode: string): boolean {
   const secret = normalizeSecret(secretRaw);
   if (!secret.length) return false;
 
@@ -76,3 +79,91 @@ export function verifyMfaCode(inputCode: string): boolean {
   return false;
 }
 
+export function generateBase32Secret(length = 32): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const bytes = randomBytes(length);
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += alphabet[bytes[i] % alphabet.length];
+  }
+  return out;
+}
+
+export function getOtpAuthUri(secret: string, accountName: string, issuer = "Prebid Sales Agent"): string {
+  const label = encodeURIComponent(`${issuer}:${accountName}`);
+  const qs = new URLSearchParams({
+    secret,
+    issuer,
+    algorithm: "SHA1",
+    digits: String(TOTP_DIGITS),
+    period: String(TOTP_STEP_SECONDS),
+  });
+  return `otpauth://totp/${label}?${qs.toString()}`;
+}
+
+async function getStoredMfaSecret(tenantId: string): Promise<string | null> {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(superadminConfig)
+    .where(eq(superadminConfig.configKey, mfaConfigKey(tenantId)))
+    .limit(1);
+  const row = rows[0];
+  if (!row?.configValue) return null;
+  return decryptFromStorage(row.configValue);
+}
+
+export async function getMfaSource(tenantId: string): Promise<"db" | "env" | "none"> {
+  const dbSecret = await getStoredMfaSecret(tenantId);
+  if (dbSecret) return "db";
+  if (process.env.ADMIN_MFA_SECRET) return "env";
+  return "none";
+}
+
+export async function getEffectiveMfaSecret(tenantId: string): Promise<string | null> {
+  const dbSecret = await getStoredMfaSecret(tenantId);
+  if (dbSecret) return dbSecret;
+  if (process.env.ADMIN_MFA_SECRET) return process.env.ADMIN_MFA_SECRET;
+  return null;
+}
+
+export async function isMfaEnabled(tenantId: string): Promise<boolean> {
+  return Boolean(await getEffectiveMfaSecret(tenantId));
+}
+
+export async function verifyMfaCode(tenantId: string, inputCode: string): Promise<boolean> {
+  const secret = await getEffectiveMfaSecret(tenantId);
+  if (!secret) return true;
+  return verifyMfaCodeForSecret(secret, inputCode);
+}
+
+export async function saveMfaSecret(tenantId: string, secret: string, updatedBy?: string): Promise<void> {
+  const db = getDb();
+  const configKey = mfaConfigKey(tenantId);
+  const encrypted = encryptForStorage(secret);
+  const now = new Date();
+  const existing = await db.select().from(superadminConfig).where(eq(superadminConfig.configKey, configKey)).limit(1);
+  if (existing[0]) {
+    await db
+      .update(superadminConfig)
+      .set({ configValue: encrypted, description: "Tenant MFA secret", updatedAt: now, updatedBy: updatedBy ?? null })
+      .where(eq(superadminConfig.configKey, configKey));
+    return;
+  }
+  await db.insert(superadminConfig).values({
+    configKey,
+    configValue: encrypted,
+    description: "Tenant MFA secret",
+    updatedAt: now,
+    updatedBy: updatedBy ?? null,
+  });
+}
+
+export async function clearMfaSecret(tenantId: string, updatedBy?: string): Promise<void> {
+  const db = getDb();
+  const configKey = mfaConfigKey(tenantId);
+  await db
+    .update(superadminConfig)
+    .set({ configValue: null, updatedAt: new Date(), updatedBy: updatedBy ?? null })
+    .where(eq(superadminConfig.configKey, configKey));
+}

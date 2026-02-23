@@ -24,6 +24,7 @@ import LineItemViewerPage from "./pages/LineItemViewerPage";
 import InventoryBrowserPage from "./pages/InventoryBrowserPage";
 import TargetingBrowserPage from "./pages/TargetingBrowserPage";
 import InventoryProfilesPage from "./pages/InventoryProfilesPage";
+import MfaPage from "./pages/MfaPage";
 
 export default function App() {
   return (
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="users" element={<UsersPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="sso" element={<SsoConfigPage />} />
+        <Route path="mfa" element={<MfaPage />} />
         <Route path="gam/reporting" element={<GamReportingPage />} />
         <Route path="gam/line-item/:id" element={<LineItemViewerPage />} />
       </Route>

@@ -27,6 +27,7 @@ import { createOnboardingRouter } from "./routes/onboarding.js";
 import { createOidcRouter } from "./routes/oidc.js";
 import { createGamRouter } from "./routes/gam.js";
 import { createInventoryProfilesRouter } from "./routes/inventoryProfiles.js";
+import { createMfaRouter } from "./routes/mfa.js";
 import { logOperation } from "../services/AuditLogService.js";
 
 /**
@@ -189,6 +190,7 @@ export function createAdminRouter(): Router {
   router.use("/api", createOidcRouter());
   router.use("/api", createGamRouter());
   router.use("/api", createInventoryProfilesRouter());
+  router.use("/api", createMfaRouter());
 
   return router;
 }

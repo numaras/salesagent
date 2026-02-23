@@ -21,6 +21,7 @@ const navItems = [
   { to: "/users", label: "Users", icon: UsersIcon },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
   { to: "/sso", label: "SSO Config", icon: SsoIcon },
+  { to: "/mfa", label: "MFA", icon: SsoIcon },
   { to: "/gam/reporting", label: "GAM Reporting", icon: GamIcon },
 ];
 
