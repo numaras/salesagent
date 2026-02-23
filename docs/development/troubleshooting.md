@@ -114,12 +114,12 @@ WHERE tenant_id = '{tenant_id}';
 
 **Force full sync with values (not recommended for large accounts):**
 ```bash
-curl -X POST https://adcp-sales-agent.fly.dev/api/v1/sync/trigger/{tenant_id} -H "X-API-Key: YOUR_API_KEY" -d '{
+curl -X POST https://adcp-sales-agent.fly.dev/api/v1/sync/trigger/{tenant_id} -H "X-API-Key: YOUR_API_KEY" -d '{ # gitleaks:allow
     "sync_type": "full",
     "fetch_custom_targeting_values": true,
     "custom_targeting_limit": 500,
     "force": true
-  }' # gitleaks:allow
+  }'
 ```
 
 **Performance impact:**
