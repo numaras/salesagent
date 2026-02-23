@@ -28,18 +28,23 @@ import { createOidcRouter } from "./routes/oidc.js";
 import { createGamRouter } from "./routes/gam.js";
 import { createInventoryProfilesRouter } from "./routes/inventoryProfiles.js";
 
-/** Routes that do NOT require authentication. */
+/**
+ * Routes that do NOT require authentication.
+ * These are paths AFTER the /api prefix is stripped by Express
+ * (the middleware is mounted at router.use("/api", ...) so req.path
+ * arrives here as e.g. "/oidc/config", not "/api/oidc/config").
+ */
 const PUBLIC_PATHS = [
-  "/api/auth/test-login",
-  "/api/auth/google",
-  "/api/auth/google/callback",
-  "/api/auth/logout",
-  "/api/auth/session",
-  "/api/oidc/config",
-  "/api/oidc/login",
-  "/api/oidc/callback",
-  "/api/onboarding/status",
-  "/api/health",
+  "/auth/test-login",
+  "/auth/google",
+  "/auth/google/callback",
+  "/auth/logout",
+  "/auth/session",
+  "/oidc/config",
+  "/oidc/login",
+  "/oidc/callback",
+  "/onboarding/status",
+  "/health",
 ];
 
 function requireSession(req: Request, res: Response, next: NextFunction): void {
