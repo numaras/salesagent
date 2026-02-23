@@ -97,12 +97,16 @@ export function createMediaBuysRouter(): Router {
 
   router.post("/media-buys/:mediaBuyId/approve", async (req: Request, res: Response) => {
     try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
       const mediaBuyId = paramStr(req.params.mediaBuyId);
       if (!mediaBuyId) throw new NotFoundError("MediaBuy", "undefined");
       const { step_id } = req.body as { step_id?: string };
       if (!step_id) throw new ValidationError("step_id is required");
 
-      const step = await approveOrder(step_id);
+      const step = await approveOrder(step_id, ctx.tenantId);
       res.json({ success: true, step_id: step.stepId, status: step.status });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -112,12 +116,16 @@ export function createMediaBuysRouter(): Router {
 
   router.post("/media-buys/:mediaBuyId/reject", async (req: Request, res: Response) => {
     try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
       const mediaBuyId = paramStr(req.params.mediaBuyId);
       if (!mediaBuyId) throw new NotFoundError("MediaBuy", "undefined");
       const { step_id, reason } = req.body as { step_id?: string; reason?: string };
       if (!step_id) throw new ValidationError("step_id is required");
 
-      const step = await rejectOrder(step_id, reason ?? "Rejected by admin");
+      const step = await rejectOrder(step_id, reason ?? "Rejected by admin", ctx.tenantId);
       res.json({ success: true, step_id: step.stepId, status: step.status });
     } catch (err) {
       const { status, body } = toHttpError(err);

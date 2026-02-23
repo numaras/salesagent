@@ -2,7 +2,7 @@
  * Order approval workflow: request, approve, and reject media buy orders.
  */
 
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getDb } from "../db/client.js";
 import {
   insertWorkflowStep,
@@ -13,7 +13,7 @@ import {
 import type { WorkflowStepRow } from "../db/repositories/workflow-step.js";
 import type { ToolContext } from "../core/auth/types.js";
 import { NotFoundError, ValidationError } from "../core/errors.js";
-import { workflowSteps } from "../db/schema.js";
+import { workflowSteps, contexts } from "../db/schema.js";
 
 export async function requestApproval(
   ctx: ToolContext,
@@ -48,11 +48,19 @@ export async function requestApproval(
 }
 
 export async function approveOrder(
-  stepId: string
+  stepId: string,
+  tenantId: string
 ): Promise<WorkflowStepRow> {
   const db = getDb();
   const step = await getWorkflowStepById(db, stepId);
   if (!step) throw new NotFoundError("WorkflowStep", stepId);
+
+  const ctxRows = await db
+    .select({ contextId: contexts.contextId })
+    .from(contexts)
+    .where(and(eq(contexts.contextId, step.contextId), eq(contexts.tenantId, tenantId)))
+    .limit(1);
+  if (ctxRows.length === 0) throw new NotFoundError("WorkflowStep", stepId);
 
   const updated = await updateWorkflowStepStatus(db, stepId, "completed", new Date());
   if (!updated) throw new NotFoundError("WorkflowStep", stepId);
@@ -61,11 +69,19 @@ export async function approveOrder(
 
 export async function rejectOrder(
   stepId: string,
-  reason: string
+  reason: string,
+  tenantId: string
 ): Promise<WorkflowStepRow> {
   const db = getDb();
   const step = await getWorkflowStepById(db, stepId);
   if (!step) throw new NotFoundError("WorkflowStep", stepId);
+
+  const ctxRows = await db
+    .select({ contextId: contexts.contextId })
+    .from(contexts)
+    .where(and(eq(contexts.contextId, step.contextId), eq(contexts.tenantId, tenantId)))
+    .limit(1);
+  if (ctxRows.length === 0) throw new NotFoundError("WorkflowStep", stepId);
 
   const updated = await db
     .update(workflowSteps)

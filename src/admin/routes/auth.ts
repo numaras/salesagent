@@ -27,12 +27,16 @@ export function createAuthRouter(): Router {
       const result = await resolveFromHeaders(headers);
       const ctx = toToolContext(result);
       
-      if (ctx?.tenantId) {
-        const db = getDb();
-        const tenant = await getTenantById(db, ctx.tenantId);
-        if (tenant && !tenant.authSetupMode) {
-          throw new AuthError("Guest login is disabled for this tenant. Please use SSO.");
-        }
+      // Explicitly block test login if setup mode is disabled, regardless of whether tenant resolved
+      const tenantId = ctx?.tenantId;
+      if (!tenantId) {
+        throw new AuthError("Could not resolve tenant. Please access via the correct domain.");
+      }
+      const db = getDb();
+      const tenant = await getTenantById(db, tenantId);
+      if (!tenant) throw new AuthError("Tenant not found.");
+      if (!tenant.authSetupMode) {
+        throw new AuthError("Guest login is disabled for this tenant. Please use SSO.");
       }
 
       const sess = sessionData(req);

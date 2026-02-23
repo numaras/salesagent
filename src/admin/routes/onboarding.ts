@@ -1,5 +1,6 @@
 import { type Request, type Response, Router } from "express";
 import { randomUUID } from "node:crypto";
+import { count } from "drizzle-orm";
 import { toHttpError, ValidationError } from "../../core/errors.js";
 import { getDb, withTransaction, type DrizzleDb } from "../../db/client.js";
 import { getChecklist } from "../../services/SetupChecklistService.js";
@@ -40,6 +41,20 @@ export function createOnboardingRouter(): Router {
 
   router.post("/onboarding/setup", async (req: Request, res: Response) => {
     try {
+      const db = getDb();
+      const [{ value }] = await db.select({ value: count() }).from(tenants);
+      const isFirstSetup = Number(value) === 0;
+      const onboardingSecret = process.env.ONBOARDING_SECRET;
+      const providedSecret = req.headers["x-onboarding-secret"];
+
+      if (!isFirstSetup && (!onboardingSecret || providedSecret !== onboardingSecret)) {
+        res.status(403).json({
+          error: "FORBIDDEN",
+          message: "Setup is complete. Use the admin panel to manage tenants.",
+        });
+        return;
+      }
+
       const { tenantName, subdomain, adapterType } = req.body as {
         tenantName?: string;
         subdomain?: string;

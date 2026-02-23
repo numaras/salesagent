@@ -6,13 +6,13 @@ export type CreativeRow = typeof creatives.$inferSelect;
 
 export async function getCreativeById(
   db: DrizzleDb,
-  creativeId: string
+  creativeId: string,
+  tenantId?: string
 ): Promise<CreativeRow | undefined> {
-  const rows = await db
-    .select()
-    .from(creatives)
-    .where(eq(creatives.creativeId, creativeId))
-    .limit(1);
+  const conditions = tenantId
+    ? and(eq(creatives.creativeId, creativeId), eq(creatives.tenantId, tenantId))
+    : eq(creatives.creativeId, creativeId);
+  const rows = await db.select().from(creatives).where(conditions).limit(1);
   return rows[0];
 }
 

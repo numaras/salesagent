@@ -1,5 +1,5 @@
 import { type Request, type Response, Router } from "express";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { resolveFromHeaders, toToolContext } from "../../core/auth/authService.js";
 import { NotFoundError, TenantError, toHttpError } from "../../core/errors.js";
 import { headersFromNodeRequest } from "../../core/httpHeaders.js";
@@ -184,7 +184,7 @@ export function createCreativesRouter(): Router {
       const updated = await db
         .update(creatives)
         .set({ status: "approved", updatedAt: new Date() })
-        .where(eq(creatives.creativeId, creativeId))
+        .where(and(eq(creatives.creativeId, creativeId), eq(creatives.tenantId, ctx.tenantId)))
         .returning();
 
       // Check if there was an AI decision to set humanOverride
@@ -228,7 +228,7 @@ export function createCreativesRouter(): Router {
       const updated = await db
         .update(creatives)
         .set({ status: "rejected", updatedAt: new Date() })
-        .where(eq(creatives.creativeId, creativeId))
+        .where(and(eq(creatives.creativeId, creativeId), eq(creatives.tenantId, ctx.tenantId)))
         .returning();
 
       // Check if there was an AI decision to set humanOverride

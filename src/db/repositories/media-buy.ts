@@ -9,13 +9,13 @@ export type MediaPackageInsert = typeof mediaPackages.$inferInsert;
 
 export async function getMediaBuyById(
   db: DrizzleDb,
-  mediaBuyId: string
+  mediaBuyId: string,
+  tenantId?: string
 ): Promise<MediaBuyRow | undefined> {
-  const rows = await db
-    .select()
-    .from(mediaBuys)
-    .where(eq(mediaBuys.mediaBuyId, mediaBuyId))
-    .limit(1);
+  const conditions = tenantId
+    ? and(eq(mediaBuys.mediaBuyId, mediaBuyId), eq(mediaBuys.tenantId, tenantId))
+    : eq(mediaBuys.mediaBuyId, mediaBuyId);
+  const rows = await db.select().from(mediaBuys).where(conditions).limit(1);
   return rows[0];
 }
 

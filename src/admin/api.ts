@@ -3,7 +3,7 @@
  * Uses shared headersFromNodeRequest and domain errors.
  */
 
-import { type Request, type Response, Router } from "express";
+import { type Request, type Response, type NextFunction, Router } from "express";
 import { createAuthRouter } from "./routes/auth.js";
 import { createTenantsRouter } from "./routes/tenants.js";
 import { createProductsRouter } from "./routes/products.js";
@@ -28,8 +28,38 @@ import { createOidcRouter } from "./routes/oidc.js";
 import { createGamRouter } from "./routes/gam.js";
 import { createInventoryProfilesRouter } from "./routes/inventoryProfiles.js";
 
+/** Routes that do NOT require authentication. */
+const PUBLIC_PATHS = [
+  "/api/auth/test-login",
+  "/api/auth/google",
+  "/api/auth/google/callback",
+  "/api/auth/logout",
+  "/api/auth/session",
+  "/api/oidc/config",
+  "/api/oidc/login",
+  "/api/oidc/callback",
+  "/api/onboarding/status",
+  "/api/health",
+];
+
+function requireSession(req: Request, res: Response, next: NextFunction): void {
+  const path = req.path;
+  const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+  if (isPublic) { next(); return; }
+
+  const sess = req.session as unknown as Record<string, unknown>;
+  if (!sess.authenticated) {
+    res.status(401).json({ error: "AUTH_REQUIRED", message: "Authentication required. Please log in." });
+    return;
+  }
+  next();
+}
+
 export function createAdminRouter(): Router {
   const router = Router();
+
+  // Apply auth middleware to all /api/* routes before any router is mounted
+  router.use("/api", requireSession);
 
   router.get("/api/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", service: "admin-api" });

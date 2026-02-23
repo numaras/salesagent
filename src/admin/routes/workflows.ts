@@ -106,10 +106,14 @@ export function createWorkflowsRouter(): Router {
 
   router.post("/workflows/:stepId/approve", async (req: Request, res: Response) => {
     try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
       const stepId = paramStr(req.params.stepId);
       if (!stepId) throw new NotFoundError("WorkflowStep", "undefined");
 
-      const step = await approveOrder(stepId);
+      const step = await approveOrder(stepId, ctx.tenantId);
       res.json({ success: true, step_id: step.stepId, status: step.status });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -119,11 +123,15 @@ export function createWorkflowsRouter(): Router {
 
   router.post("/workflows/:stepId/reject", async (req: Request, res: Response) => {
     try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
       const stepId = paramStr(req.params.stepId);
       if (!stepId) throw new NotFoundError("WorkflowStep", "undefined");
       const { reason } = req.body as { reason?: string };
 
-      const step = await rejectOrder(stepId, reason ?? "Rejected by admin");
+      const step = await rejectOrder(stepId, reason ?? "Rejected by admin", ctx.tenantId);
       res.json({ success: true, step_id: step.stepId, status: step.status });
     } catch (err) {
       const { status, body } = toHttpError(err);

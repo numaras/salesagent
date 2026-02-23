@@ -7,416 +7,63 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  PYTHON_VERSION: '3.12'
-  UV_VERSION: '0.9.6'
-  PYTHONPATH: python_src
-
 jobs:
-  security-audit:
-    name: Security Audit
+  lint-and-typecheck:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Lint and Type Check Backend
+        run: npm run lint
+      - name: Build Frontend
+        working-directory: frontend
+        run: npm ci && npm run build
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: ${{ env.UV_VERSION }}
-
-    - name: Install dependencies
-      run: uv sync --extra dev
-
-    - name: Scan for vulnerabilities
-      # GHSA-7gcm-g887-7qv7: protobuf DoS vulnerability (CVE-2026-0994)
-      # No fix available yet - affects all versions through 6.33.4
-      # Transitive dependency from google-ads, google-api-core, logfire, a2a-sdk
-      # Remove --ignore-vulns when protobuf releases a patched version
-      run: uvx uv-secure --ignore-vulns GHSA-7gcm-g887-7qv7
-
-    - name: Run Bandit (Python security linter)
-      run: uv run bandit -r python_src -c pyproject.toml -ll || true
-
-  smoke-tests:
-    name: Smoke Tests (Fast Import Checks)
+  test:
+    name: Unit & Integration Tests
     runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: ${{ env.UV_VERSION }}
-
-    - name: Cache uv dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/uv
-          .venv
-        key: ${{ runner.os }}-uv-v2-${{ hashFiles('**/uv.lock') }}
-
-    - name: Install dependencies
-      run: uv sync --extra dev
-
-    - name: Run smoke tests
-      env:
-        GEMINI_API_KEY: test_key
-        PYTEST_CURRENT_TEST: true
-        ADCP_TESTING: true
-      run: uv run pytest tests/smoke/ -v --tb=short
-
-    - name: Check for skipped tests
-      run: |
-        if grep -r "@pytest.mark.skip" tests/ --include="test_*.py" | grep -v "skip_ci"; then
-          echo "❌ Found skip decorators in tests!"
-          exit 1
-        fi
-        echo "✅ No skip decorators found"
-
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: ${{ env.UV_VERSION }}
-
-    - name: Cache uv dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/uv
-          .venv
-        key: ${{ runner.os }}-uv-v2-${{ hashFiles('**/uv.lock') }}
-
-    - name: Install dependencies
-      run: uv sync --extra dev
-
-    - name: Run unit tests
-      env:
-        GEMINI_API_KEY: test_key_for_mocking
-        GOOGLE_CLIENT_ID: test_client_id
-        GOOGLE_CLIENT_SECRET: test_client_secret
-        SUPER_ADMIN_EMAILS: test@example.com
-        ADCP_TESTING: true
-      run: uv run pytest tests/unit/ -v --tb=short --cov=. --cov-report=term-missing
-
-  integration-tests:
-    name: Integration Tests (Legacy - 174 passing)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
     services:
       postgres:
-        image: postgres:15
+        image: postgres:15-alpine
         env:
           POSTGRES_USER: adcp_user
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: adcp_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
         ports:
           - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: ${{ env.UV_VERSION }}
-
-    - name: Cache uv dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/uv
-          .venv
-        key: ${{ runner.os }}-uv-v2-${{ hashFiles('**/uv.lock') }}
-
-    - name: Install dependencies
-      run: |
-        uv sync --extra dev
-        # Clear Python bytecode cache to prevent stale imports
-        find . -type d -name __pycache__ -exec rm -rf {} + || true
-        find . -type f -name '*.pyc' -delete || true
-
-    - name: Run database migrations
-      env:
-        DATABASE_URL: postgresql://adcp_user:test_password@localhost:5432/adcp_test
-      run: uv run python scripts/ops/migrate.py
-
-    - name: Run integration tests
-      env:
-        DATABASE_URL: postgresql://adcp_user:test_password@localhost:5432/adcp_test
-        GEMINI_API_KEY: test_key_for_mocking
-        GOOGLE_CLIENT_ID: test_client_id
-        GOOGLE_CLIENT_SECRET: test_client_secret
-        SUPER_ADMIN_EMAILS: test@example.com
-        ENCRYPTION_KEY: PEg0SNGQyvzi4Nft-ForSzK8AGXyhRtql1MgoUsfUHk=
-        ADCP_TESTING: true
-      run: |
-        uv run pytest tests/integration/ -v --tb=short --cov=. --cov-report=term-missing --timeout=60 -m "not requires_server and not skip_ci" \
-          --ignore=tests/integration/test_a2a_error_responses.py \
-          --ignore=tests/integration/test_a2a_skill_invocation.py \
-          --ignore=tests/integration/test_get_products_format_id_filter.py
-
-  integration-tests-v2:
-    name: Integration Tests V2 (Pricing Migration Fixed)
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Run Migrations
         env:
-          POSTGRES_USER: adcp_user
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: adcp_test_v2
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-        ports:
-          - 5432:5432
+          DATABASE_URL: postgresql://adcp_user:test_password@localhost:5432/adcp_test?sslmode=disable
+        run: npm run db:migrate
+      - name: Run Tests
+        env:
+          DATABASE_URL: postgresql://adcp_user:test_password@localhost:5432/adcp_test?sslmode=disable
+        run: npm run test
 
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: ${{ env.UV_VERSION }}
-
-    - name: Cache uv dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/uv
-          .venv
-        key: ${{ runner.os }}-uv-v2-${{ hashFiles('**/uv.lock') }}
-
-    - name: Install dependencies
-      run: |
-        uv sync --extra dev
-        # Clear Python bytecode cache to prevent stale imports
-        find . -type d -name __pycache__ -exec rm -rf {} + || true
-        find . -type f -name '*.pyc' -delete || true
-
-    - name: Run database migrations
-      env:
-        DATABASE_URL: postgresql://adcp_user:test_password@localhost:5432/adcp_test_v2
-      run: uv run python scripts/ops/migrate.py
-
-    - name: Run integration V2 tests
-      env:
-        DATABASE_URL: postgresql://adcp_user:test_password@localhost:5432/adcp_test_v2
-        GEMINI_API_KEY: test_key_for_mocking
-        GOOGLE_CLIENT_ID: test_client_id
-        GOOGLE_CLIENT_SECRET: test_client_secret
-        SUPER_ADMIN_EMAILS: test@example.com
-        ENCRYPTION_KEY: PEg0SNGQyvzi4Nft-ForSzK8AGXyhRtql1MgoUsfUHk=
-        ADCP_TESTING: true
-      run: uv run pytest tests/integration_v2/ -v --tb=short --cov=. --cov-report=term-missing -m "not skip_ci"
-
-  quickstart-test:
-    name: Quickstart Docker Compose Test
+  docker-build:
+    name: Docker Build Check
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    # Test the actual quickstart flow users follow
-
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Start services with docker compose
-      run: |
-        docker compose up -d --wait --wait-timeout 120
-        echo "Services started, checking logs..."
-
-    - name: Check db-init completed successfully
-      run: |
-        # Verify migrations ran
-        docker compose logs db-init | grep -E "(migrations completed|Migration complete)" || {
-          echo "❌ Migrations did not complete successfully"
-          docker compose logs db-init
-          exit 1
-        }
-        echo "✅ Database migrations completed"
-
-    - name: Verify all services are healthy
-      run: |
-        # Check health endpoints
-        curl -f http://localhost:8000/health || {
-          echo "❌ Health check failed"
-          docker compose logs
-          exit 1
-        }
-        echo "✅ Services are healthy"
-
-    - name: Verify database tables exist
-      run: |
-        # Connect to postgres and check tables
-        docker compose exec -T postgres psql -U adcp_user -d adcp -c "\dt" | grep -E "media_buys|tenants|products" || {
-          echo "❌ Required tables not found"
-          docker compose exec -T postgres psql -U adcp_user -d adcp -c "\dt"
-          exit 1
-        }
-        echo "✅ Database tables created successfully"
-
-    - name: Cleanup
-      if: always()
-      run: docker compose down -v
-
-  e2e-tests:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # Run E2E tests on PRs and main branch pushes - catch issues early!
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: ${{ env.UV_VERSION }}
-
-    - name: Cache uv dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/uv
-          .venv
-        key: ${{ runner.os }}-uv-v2-${{ hashFiles('**/uv.lock') }}
-
-    - name: Install dependencies
-      run: uv sync --extra dev
-
-    - name: Verify Docker Compose v2
-      run: |
-        # GitHub-hosted runners include Docker Compose v2 plugin
-        docker compose version
-        # Create alias for backwards compatibility with tests that use docker-compose
-        echo '#!/bin/bash' | sudo tee /usr/local/bin/docker-compose
-        echo 'exec docker compose "$@"' | sudo tee -a /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-
-    - name: Clean up any lingering containers
-      run: |
-        # Kill all running containers to prevent port conflicts
-        docker ps -q | xargs -r docker kill || true
-        # Clean up E2E compose stack specifically
-        docker compose -f docker-compose.e2e.yml down -v 2>/dev/null || true
-        docker compose down -v 2>/dev/null || true
-        # Remove all containers, networks, and volumes
-        docker container prune -f 2>/dev/null || true
-        docker network prune -f 2>/dev/null || true
-        docker volume prune -f 2>/dev/null || true
-
-    - name: Run E2E tests
-      env:
-        # Docker Compose manages its own PostgreSQL - don't set DATABASE_URL
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'test_key_for_mocking' }}
-        GOOGLE_CLIENT_ID: test_client_id
-        GOOGLE_CLIENT_SECRET: test_client_secret
-        SUPER_ADMIN_EMAILS: test@example.com
-        # Don't set ADCP_TESTING=true - let E2E tests manage their own Docker stack
-        ADCP_SALES_PORT: 8080
-        A2A_PORT: 8091
-        # Enable Docker BuildKit for faster builds with caching
-        DOCKER_BUILDKIT: 1
-        COMPOSE_DOCKER_CLI_BUILD: 1
-      run: |
-        # Let pytest manage Docker Compose via conftest.py
-        # Timeout is 300s (5 min) to allow for Docker build + startup + health checks + test execution
-        uv run pytest tests/e2e/ -v --tb=short --timeout=300
-
-    - name: Cleanup Docker services
-      if: always()
-      run: |
-        docker compose -f docker-compose.e2e.yml down -v 2>/dev/null || true
-  lint:
-    name: Lint & Type Check
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: ${{ env.UV_VERSION }}
-
-    - name: Install dependencies
-      run: uv sync --extra dev
-
-    - name: Run Ruff linter
-      run: uv run ruff check . --config pyproject.toml || true
-      continue-on-error: true
-
-    - name: Run Ruff formatter
-      run: uv run ruff format . --check --config pyproject.toml || true
-      continue-on-error: true
-
-    - name: Run mypy type checking (ENFORCED - must pass)
-      run: |
-        echo "🔍 Running mypy type checks on python_src/src/ directory..."
-        uv run python -m mypy python_src/src/ --config-file=mypy.ini
-        echo "✅ Mypy type checking passed (0 errors)"
-
-  test-summary:
-    name: Test Summary
-    runs-on: ubuntu-latest
-    needs: [security-audit, smoke-tests, unit-tests, integration-tests, integration-tests-v2, quickstart-test, e2e-tests, lint]
-    if: always()
-
-    steps:
-    - name: Check test results
-      run: |
-        if [ "${{ needs.security-audit.result }}" = "failure" ] || [ "${{ needs.unit-tests.result }}" = "failure" ] || [ "${{ needs.integration-tests.result }}" = "failure" ] || [ "${{ needs.integration-tests-v2.result }}" = "failure" ] || [ "${{ needs.quickstart-test.result }}" = "failure" ] || [ "${{ needs.e2e-tests.result }}" = "failure" ] || [ "${{ needs.lint.result }}" = "failure" ]; then
-          echo "❌ Tests failed"
-          exit 1
-        else
-          echo "✅ All tests passed (security-audit, smoke, unit, integration, integration-v2, quickstart, e2e, lint+mypy)"
-        fi
+      - uses: actions/checkout@v4
+      - name: Build Docker Image
+        run: docker build -t salesagent-ts .

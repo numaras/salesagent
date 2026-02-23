@@ -23,6 +23,10 @@ function createToolHandler<A>(toolName: string, fn: ToolFn<A>) {
       const result = await resolveFromHeaders(headers);
       const ctx = toToolContext(result);
       if (!ctx?.tenantId) throw new TenantError();
+      // Require a real principal token — tenant-only (anonymous) access not allowed
+      if (!ctx.principalId) {
+        throw new TenantError("Authentication required. Provide a valid x-adcp-auth token.");
+      }
       
       const testContext = extractTestContext(headers);
       if (testContext) ctx.testContext = testContext;

@@ -1,6 +1,8 @@
 import { type Request, type Response, Router } from "express";
 import { eq } from "drizzle-orm";
-import { NotFoundError, toHttpError, ValidationError } from "../../core/errors.js";
+import { NotFoundError, TenantError, toHttpError, ValidationError } from "../../core/errors.js";
+import { resolveFromHeaders, toToolContext } from "../../core/auth/authService.js";
+import { headersFromNodeRequest } from "../../core/httpHeaders.js";
 import { getDb } from "../../db/client.js";
 import { getTenantById } from "../../db/repositories/tenant.js";
 import { listProductsByTenant } from "../../db/repositories/product.js";
@@ -16,18 +18,23 @@ function paramStr(v: string | string[] | undefined): string | undefined {
 export function createTenantsRouter(): Router {
   const router = Router();
 
-  router.get("/tenants", async (_req: Request, res: Response) => {
+  router.get("/tenants", async (req: Request, res: Response) => {
     try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
       const db = getDb();
-      const rows = await db.select().from(tenants);
+      const row = await getTenantById(db, ctx.tenantId);
+      if (!row) throw new NotFoundError("Tenant", ctx.tenantId);
       res.json({
-        tenants: rows.map((r) => ({
-          tenant_id: r.tenantId,
-          name: r.name,
-          subdomain: r.subdomain,
-          is_active: r.isActive,
-          created_at: r.createdAt,
-        })),
+        tenant_id: row.tenantId,
+        name: row.name,
+        subdomain: row.subdomain,
+        is_active: row.isActive,
+        ad_server: row.adServer,
+        created_at: row.createdAt,
+        updated_at: row.updatedAt,
       });
     } catch (err) {
       const { status, body } = toHttpError(err);
@@ -37,9 +44,17 @@ export function createTenantsRouter(): Router {
 
   router.get("/tenants/:tenantId", async (req: Request, res: Response) => {
     try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
       const db = getDb();
       const tenantId = paramStr(req.params.tenantId);
       if (!tenantId) throw new NotFoundError("Tenant", "undefined");
+      if (tenantId !== ctx.tenantId) {
+        res.status(403).json({ error: "FORBIDDEN", message: "Access denied" });
+        return;
+      }
       const row = await getTenantById(db, tenantId);
       if (!row) throw new NotFoundError("Tenant", tenantId);
       res.json({
@@ -59,9 +74,17 @@ export function createTenantsRouter(): Router {
 
   router.get("/tenants/:tenantId/dashboard", async (req: Request, res: Response) => {
     try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
       const db = getDb();
       const tenantId = paramStr(req.params.tenantId);
       if (!tenantId) throw new NotFoundError("Tenant", "undefined");
+      if (tenantId !== ctx.tenantId) {
+        res.status(403).json({ error: "FORBIDDEN", message: "Access denied" });
+        return;
+      }
 
       const tenant = await getTenantById(db, tenantId);
       if (!tenant) throw new NotFoundError("Tenant", tenantId);
@@ -95,8 +118,16 @@ export function createTenantsRouter(): Router {
 
   router.get("/tenants/:tenantId/setup-checklist", async (req: Request, res: Response) => {
     try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
       const tenantId = paramStr(req.params.tenantId);
       if (!tenantId) throw new NotFoundError("Tenant", "undefined");
+      if (tenantId !== ctx.tenantId) {
+        res.status(403).json({ error: "FORBIDDEN", message: "Access denied" });
+        return;
+      }
       const checklist = await getChecklist(tenantId);
       res.json(checklist);
     } catch (err) {
@@ -107,9 +138,17 @@ export function createTenantsRouter(): Router {
 
   router.post("/tenants/:tenantId/settings", async (req: Request, res: Response) => {
     try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
       const db = getDb();
       const tenantId = paramStr(req.params.tenantId);
       if (!tenantId) throw new NotFoundError("Tenant", "undefined");
+      if (tenantId !== ctx.tenantId) {
+        res.status(403).json({ error: "FORBIDDEN", message: "Access denied" });
+        return;
+      }
 
       const existing = await getTenantById(db, tenantId);
       if (!existing) throw new NotFoundError("Tenant", tenantId);

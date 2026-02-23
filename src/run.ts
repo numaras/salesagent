@@ -81,6 +81,11 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(status).json(body);
 });
 
+if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+  console.error("FATAL: SESSION_SECRET environment variable must be set in production.");
+  process.exit(1);
+}
+
 const server = createServer(app);
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`TS app listening on http://0.0.0.0:${PORT}`);

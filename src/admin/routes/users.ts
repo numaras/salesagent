@@ -67,12 +67,16 @@ export function createUsersRouter(): Router {
 
   router.post("/users/:userId/toggle", async (req: Request, res: Response) => {
     try {
+      const headers = headersFromNodeRequest(req);
+      const result = await resolveFromHeaders(headers);
+      const ctx = toToolContext(result);
+      if (!ctx?.tenantId) throw new TenantError();
       const db = getDb();
       const userId = paramStr(req.params.userId);
       if (!userId) throw new NotFoundError("User", "undefined");
 
       const existing = await getUserById(db, userId);
-      if (!existing) throw new NotFoundError("User", userId);
+      if (!existing || existing.tenantId !== ctx.tenantId) throw new NotFoundError("User", userId);
 
       const updated = await db
         .update(users)
