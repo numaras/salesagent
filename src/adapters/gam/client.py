@@ -11,6 +11,7 @@ from typing import Any
 from googleads import ad_manager
 
 from .auth import GAMAuthManager
+from .utils.constants import GAM_API_VERSION
 from .utils.health_check import GAMHealthChecker, HealthCheckResult, HealthStatus
 
 logger = logging.getLogger(__name__)
@@ -87,7 +88,7 @@ class GAMClientManager:
             GAM service instance
         """
         client = self.get_client()
-        return client.GetService(service_name, version="v202411")
+        return client.GetService(service_name, version=GAM_API_VERSION)
 
     def get_statement_builder(self):
         """Get a StatementBuilder for GAM API queries.
@@ -106,7 +107,7 @@ class GAMClientManager:
         try:
             client = self.get_client()
             # Simple test call - get network info
-            network_service = client.GetService("NetworkService", version="v202411")
+            network_service = client.GetService("NetworkService", version=GAM_API_VERSION)
             network_service.getCurrentNetwork()
             return True
         except Exception as e:
@@ -128,7 +129,9 @@ class GAMClientManager:
             GAMHealthChecker instance
         """
         if self._health_checker is None:
-            self._health_checker = GAMHealthChecker(self.config, dry_run=dry_run)
+            # Merge network_code into config for health checker's own client init
+            health_config = {**self.config, "network_code": self.network_code}
+            self._health_checker = GAMHealthChecker(health_config, dry_run=dry_run)
         return self._health_checker
 
     def check_health(
