@@ -124,6 +124,7 @@ from pydantic import (
     Field,
     RootModel,
     field_serializer,
+    field_validator,
     model_serializer,
     model_validator,
 )
@@ -665,6 +666,18 @@ class Format(LibraryFormat):
     We only add internal fields here marked with exclude=True.
     """
 
+    # Override to use our FormatId subclass which adds get_dimensions() and get_duration_ms().
+    # model_rebuild() is called after FormatId is defined below to wire this up.
+    format_id: "FormatId"  # type: ignore[assignment]
+
+    @field_validator("format_id", mode="before")
+    @classmethod
+    def coerce_format_id(cls, v: object) -> object:
+        """Convert library FormatId instances to a dict so Pydantic rebuilds them as our FormatId subclass."""
+        if isinstance(v, LibraryFormatId):
+            return v.model_dump()
+        return v
+
     # Internal fields for backward compatibility and convenience
     # These are NOT part of the AdCP spec and are excluded from serialization
     platform_config: dict[str, Any] | None = Field(
@@ -714,7 +727,7 @@ class Format(LibraryFormat):
             Tuple of (width, height) in pixels, or None if not available.
         """
         # Try format_id parameters first (AdCP 2.5 parameterized formats)
-        dims = self.format_id.get_dimensions()  # type: ignore[attr-defined]  # our FormatId subclass
+        dims = self.format_id.get_dimensions()
         if dims is not None:
             return dims
 
@@ -1652,6 +1665,12 @@ class FormatId(LibraryFormatId):
             Duration in milliseconds, or None if not specified.
         """
         return self.duration_ms
+
+
+# Rebuild Format now that FormatId is fully defined, so Pydantic uses our
+# FormatId subclass (with get_dimensions/get_duration_ms) instead of the
+# library's FormatId when deserializing Format.format_id.
+Format.model_rebuild()
 
 
 class Creative(LibraryCreative):
